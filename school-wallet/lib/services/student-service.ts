@@ -29,6 +29,37 @@ export async function getActiveStudentByToken(
   }
 }
 
+export async function searchActiveStudents(
+  keyword: string,
+): Promise<{ data: Student[]; error: Error | null }> {
+  if (!supabase) {
+    return { data: [], error: new Error('ยังไม่ได้ตั้งค่า Supabase') }
+  }
+
+  const cleanKeyword = keyword.trim()
+
+  if (!cleanKeyword) {
+    return { data: [], error: null }
+  }
+
+  const escapedKeyword = cleanKeyword.replace(/[%,]/g, (character) => `\\${character}`)
+
+  const { data, error } = await supabase
+    .from('students')
+    .select(STUDENT_FIELDS)
+    .eq('active', true)
+    .or(
+      `full_name.ilike.%${escapedKeyword}%,student_code.ilike.%${escapedKeyword}%`,
+    )
+    .order('full_name')
+    .limit(10)
+
+  return {
+    data: (data ?? []) as Student[],
+    error,
+  }
+}
+
 export async function getStudents(): Promise<{
   data: Student[]
   error: Error | null

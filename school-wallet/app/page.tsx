@@ -26,7 +26,11 @@ export default function HomePage() {
   const [customQuantity, setCustomQuantity] = useState('1')
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
-  const [token, setToken] = useState<string | null>(null)
+
+  // undefined = ยังไม่ได้อ่าน query string จาก URL
+  // null = ไม่มี student token และเป็นหน้าแรกจริง ๆ
+  // string = กำลังโหลดข้อมูลนักเรียนจาก QR
+  const [token, setToken] = useState<string | null | undefined>(undefined)
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
@@ -37,8 +41,6 @@ export default function HomePage() {
   useEffect(() => {
     if (!supabase) return
 
-    // Narrow the nullable Supabase client once so callbacks below are
-    // type-safe and cannot trigger TS18047.
     const client = supabase
     let mounted = true
 
@@ -62,6 +64,9 @@ export default function HomePage() {
   }, [])
 
   useEffect(() => {
+    // รอให้อ่าน token จาก URL ก่อน เพื่อไม่ให้หน้า Home โผล่มาแว็บ ๆ
+    if (token === undefined) return
+
     let cancelled = false
 
     async function load() {
@@ -232,13 +237,15 @@ export default function HomePage() {
     }
   }
 
-  if (loading && !student && !token) {
+  // สำคัญ: ระหว่างที่ยังไม่รู้ว่า URL มี ?student= หรือไม่
+  // ให้แสดง loading เท่านั้น ห้าม render หน้า Home ก่อน
+  if (token === undefined || (loading && token && !student)) {
     return (
       <main className="shell app-shell">
         <div className="app-loading-card">
           <div className="loading-logo">🎒</div>
           <strong>School Wallet</strong>
-          <span>กำลังเตรียมระบบ...</span>
+          <span>{token ? 'กำลังโหลดข้อมูลนักเรียน...' : 'กำลังเตรียมระบบ...'}</span>
         </div>
       </main>
     )
