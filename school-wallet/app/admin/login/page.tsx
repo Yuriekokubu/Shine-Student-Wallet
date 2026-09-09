@@ -1,12 +1,11 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '../../../lib/supabase'
 
 function AdminLoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -17,13 +16,21 @@ function AdminLoginForm() {
     if (!supabase) return
 
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session?.user?.app_metadata?.role === 'admin') {
-        router.replace('/admin')
+      const role =
+        data.session?.user?.app_metadata?.role ||
+        data.session?.user?.user_metadata?.role
+
+      if (role === 'admin') {
+        const next = searchParams.get('next')
+        const destination =
+          next?.startsWith('/') && !next.startsWith('//') ? next : '/admin'
+        window.location.href = destination
       }
     })
-  }, [router])
+  }, [searchParams])
 
-  async function login() {
+  async function login(e?: React.FormEvent) {
+    if (e) e.preventDefault()
     setError('')
 
     if (!supabase) {
@@ -38,39 +45,49 @@ function AdminLoginForm() {
 
     setLoading(true)
 
-    const { data, error: loginError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    })
+    try {
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
 
-    if (loginError) {
+      if (loginError) {
+        setError(
+          loginError.message === 'Invalid login credentials'
+            ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'
+            : loginError.message,
+        )
+        setLoading(false)
+        return
+      }
+
+      const role =
+        data.user?.app_metadata?.role ||
+        data.user?.user_metadata?.role
+
+      if (role !== 'admin') {
+        await supabase.auth.signOut()
+        setError('บัญชีนี้ไม่มีสิทธิ์ Admin (ต้องมี role: admin)')
+        setLoading(false)
+        return
+      }
+
+      setPassword('')
+
+      const next = searchParams.get('next')
+      const destination =
+        next?.startsWith('/') && !next.startsWith('//') ? next : '/admin'
+
+      // ใช้ window.location.href เพื่อทำ Hard Navigation ให้บราวเซอร์ส่ง Cookies ไปยัง Server อย่างครบถ้วน
+      // ป้องกัน Next.js Router soft-navigate ติดค้างหรือถูก Middleware ดีดกลับ
+      window.location.href = destination
+    } catch (err: any) {
+      console.error('[AdminLogin] Error:', err)
       setError(
-        loginError.message === 'Invalid login credentials'
-          ? 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'
-          : loginError.message,
+        err?.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง',
       )
       setLoading(false)
-      return
     }
-
-    const role = data.user?.app_metadata?.role
-
-    if (role !== 'admin') {
-      await supabase.auth.signOut()
-      setError('บัญชีนี้ไม่มีสิทธิ์ Admin')
-      setLoading(false)
-      return
-    }
-
-    setPassword('')
-
-    const next = searchParams.get('next')
-    const destination = next?.startsWith('/') && !next.startsWith('//')
-      ? next
-      : '/admin'
-
-    router.replace(destination)
-    router.refresh()
   }
 
   return (
@@ -102,39 +119,37 @@ function AdminLoginForm() {
           </div>
         )}
 
-        <input
-          className="input"
-          type="email"
-          placeholder="อีเมลผู้ดูแล"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') login()
-          }}
-          autoComplete="email"
-        />
+        <form onSubmit={login}>
+          <input
+            className="input"
+            type="email"
+            placeholder="อีเมลผู้ดูแล"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            autoComplete="email"
+            disabled={loading}
+          />
 
-        <input
-          className="input"
-          style={{ marginTop: 10 }}
-          type="password"
-          placeholder="รหัสผ่าน"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') login()
-          }}
-          autoComplete="current-password"
-        />
+          <input
+            className="input"
+            style={{ marginTop: 10 }}
+            type="password"
+            placeholder="รหัสผ่าน"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            autoComplete="current-password"
+            disabled={loading}
+          />
 
-        <button
-          className="btn primary"
-          style={{ width: '100%', marginTop: 12 }}
-          onClick={login}
-          disabled={loading}
-        >
-          {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
-        </button>
+          <button
+            type="submit"
+            className="btn primary"
+            style={{ width: '100%', marginTop: 12 }}
+            disabled={loading}
+          >
+            {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+          </button>
+        </form>
 
         {error && (
           <div className="status error" style={{ marginTop: 12 }}>

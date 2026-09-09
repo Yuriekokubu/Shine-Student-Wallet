@@ -36,7 +36,9 @@ export default function KioskPage() {
       if (!supabase) return
 
       const { data } = await supabase.auth.getSession()
-      const role = data.session?.user?.app_metadata?.role
+      const role =
+        data.session?.user?.app_metadata?.role ||
+        data.session?.user?.user_metadata?.role
 
       if (mounted) setAdminLoggedIn(role === 'admin')
     }

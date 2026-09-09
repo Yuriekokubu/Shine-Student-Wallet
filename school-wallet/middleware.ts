@@ -1,27 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-const PUBLIC_PATHS = ['/admin/login', '/student']
-
-function isPublicPath(pathname: string) {
-  return PUBLIC_PATHS.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`),
-  )
-}
-
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  if (
-    pathname.startsWith('/_next/') ||
-    pathname.startsWith('/favicon')
-  ) {
-    return NextResponse.next()
-  }
+  // เฉพาะเส้นทาง /admin เท่านั้นที่ต้องตรวจสอบสิทธิ์ Admin (ยกเว้น /admin/login)
+  const isAdminRoute =
+    pathname === '/admin' ||
+    (pathname.startsWith('/admin/') && pathname !== '/admin/login')
 
-  // Student balance page is intentionally public.
-  // It only reads active student information by QR token and must not require Admin login.
-  if (isPublicPath(pathname)) {
+  if (!isAdminRoute) {
     return NextResponse.next()
   }
 
@@ -35,7 +23,9 @@ export async function middleware(request: NextRequest) {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
 
   if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.redirect(new URL('/admin/login?error=config', request.url))
+    return NextResponse.redirect(
+      new URL('/admin/login?error=config', request.url),
+    )
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
@@ -68,19 +58,29 @@ export async function middleware(request: NextRequest) {
   if (!user) {
     const loginUrl = new URL('/admin/login', request.url)
     loginUrl.searchParams.set('next', pathname)
-    return NextResponse.redirect(loginUrl)
+    const redirectRes = NextResponse.redirect(loginUrl)
+    response.cookies.getAll().forEach((c) => {
+      redirectRes.cookies.set(c.name, c.value, c)
+    })
+    return redirectRes
   }
 
-  if (user.app_metadata?.role !== 'admin') {
-    await supabase.auth.signOut()
-    return NextResponse.redirect(
+  const role = user.app_metadata?.role || user.user_metadata?.role
+
+  if (role !== 'admin') {
+    const redirectRes = NextResponse.redirect(
       new URL('/admin/login?error=not_admin', request.url),
     )
+    response.cookies.getAll().forEach((c) => {
+      redirectRes.cookies.set(c.name, c.value, c)
+    })
+    return redirectRes
   }
 
   return response
 }
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/admin/:path*'],
 }
+

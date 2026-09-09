@@ -1746,13 +1746,12 @@ p {
     gap: 5px;
   }
 
-  .admin-actions .btn {
-    padding: 8px 9px;
-    font-size: 11px;
-  }
-
-  .admin-actions .btn:first-child {
-    display: none;
+  .admin-actions .admin-kiosk-top-btn {
+    display: inline-flex;
+    align-items: center;
+    background: #4f46e5;
+    color: #ffffff;
+    font-weight: 700;
   }
 
   .admin-stats {
@@ -2002,3 +2001,912 @@ p {
     padding: 7px 3px;
   }
 }
+
+/* =========================================================
+   Mobile Rich Menu & Quick Kiosk Banner (Admin Mobile UI)
+   ========================================================= */
+
+.admin-mobile-kiosk-banner {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  /* Extra bottom padding on mobile shell so content is never covered by bottom rich menu */
+  .shell:has(.admin-mobile-menu) {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 16px));
+  }
+
+  /* Quick Kiosk Banner at the top of Admin Mobile */
+  .admin-mobile-kiosk-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, #1e1b4b 0%, #3730a3 50%, #4338ca 100%);
+    color: #ffffff;
+    box-shadow: 0 10px 28px rgba(30, 27, 75, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .admin-kiosk-banner-body {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .admin-kiosk-banner-icon {
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    display: grid;
+    place-items: center;
+    font-size: 26px;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 16px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+
+  .admin-kiosk-banner-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #c7d2fe;
+    margin-bottom: 2px;
+  }
+
+  .admin-kiosk-banner-text h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.25;
+  }
+
+  .admin-kiosk-banner-text p {
+    margin: 3px 0 0;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.82);
+    line-height: 1.45;
+  }
+
+  .admin-kiosk-banner-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 18px;
+    border-radius: 16px;
+    background: #ffffff;
+    color: #312e81;
+    font-weight: 800;
+    font-size: 14px;
+    text-decoration: none;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+
+  .admin-kiosk-banner-btn strong {
+    font-size: 18px;
+  }
+
+  .admin-kiosk-banner-btn:active {
+    transform: scale(0.98);
+    background: #f8fafc;
+  }
+
+  /* Admin Mobile Rich Menu (Floating Bottom Navigation) */
+  .admin-mobile-menu {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: flex-end;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(226, 232, 240, 0.9);
+    box-shadow: 0 -10px 32px rgba(15, 23, 42, 0.12);
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom, 12px));
+    gap: 3px;
+  }
+
+  .admin-menu-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 2px;
+    border-radius: 14px;
+    border: 0;
+    background: transparent;
+    color: #64748b;
+    text-decoration: none;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .admin-menu-item:active {
+    transform: scale(0.92);
+  }
+
+  .admin-menu-item.active {
+    color: #4f46e5;
+    background: rgba(79, 70, 229, 0.08);
+  }
+
+  .admin-menu-icon {
+    font-size: 20px;
+    line-height: 1.2;
+    margin-bottom: 2px;
+  }
+
+  .admin-menu-label {
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+
+  .admin-menu-sub {
+    font-size: 9px;
+    font-weight: 600;
+    opacity: 0.72;
+    margin-top: 1px;
+    white-space: nowrap;
+  }
+
+  /* Center Highlighted Kiosk Button */
+  .admin-menu-kiosk {
+    position: relative;
+    top: -10px;
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+    color: #ffffff !important;
+    border-radius: 18px;
+    padding: 9px 4px 7px;
+    box-shadow: 0 8px 24px rgba(79, 70, 229, 0.42);
+    transform: translateY(0);
+  }
+
+  .admin-menu-kiosk .admin-menu-icon {
+    font-size: 24px;
+  }
+
+  .admin-menu-kiosk .admin-menu-label {
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .admin-menu-kiosk .admin-menu-sub {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+  }
+
+  .admin-menu-kiosk:active {
+    transform: translateY(2px) scale(0.96) !important;
+  }
+
+  .admin-menu-logout {
+    color: #ef4444;
+  }
+
+  .admin-menu-logout:active {
+    background: #fef2f2;
+  }
+}
+
+/* =========================================================
+   Confirmation Modal (Beautiful Confirmation Dialog)
+   ========================================================= */
+
+.confirm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.confirm-modal-card {
+  width: min(100%, 420px);
+  background: #ffffff;
+  border-radius: 26px;
+  padding: 28px 24px 22px;
+  text-align: center;
+  box-shadow: 0 25px 60px -12px rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+  animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.confirm-modal-icon-ring {
+  width: 68px;
+  height: 68px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: #fef2f2;
+  border: 4px solid #fee2e2;
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  box-shadow: 0 8px 22px rgba(239, 68, 68, 0.16);
+}
+
+.confirm-modal-title {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.confirm-modal-message {
+  margin: 0;
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.confirm-modal-detail {
+  margin-top: 14px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  text-align: center;
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+.confirm-modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.confirm-modal-btn {
+  min-height: 48px;
+  border-radius: 15px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  border: 0;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-modal-btn:active {
+  transform: scale(0.96);
+}
+
+.confirm-modal-btn.cancel {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.confirm-modal-btn.cancel:hover {
+  background: #e2e8f0;
+}
+
+.confirm-modal-btn.danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.32);
+}
+
+.confirm-modal-btn.danger:hover {
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+}
+
+.confirm-modal-btn.primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(79, 70, 229, 0.32);
+}
+
+.confirm-modal-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 540px) {
+  .confirm-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .confirm-modal-card {
+    width: 100%;
+    border-radius: 28px 28px 0 0;
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom, 12px));
+    animation: modalSlideUpMobile 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @keyframes modalSlideUpMobile {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+}
+
+/* =========================================================
+   Student Financial History Panel, Table, Badges & Pagination
+   ========================================================= */
+
+.history-panel {
+  margin-top: 20px;
+  background: #ffffff;
+  border-radius: 26px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 16px 40px -10px rgba(15, 23, 42, 0.09);
+  padding: 24px;
+}
+
+/* History Header */
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-wrap: wrap;
+}
+
+.history-student-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.history-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  object-fit: cover;
+  background: #ede9fe;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.18);
+  flex-shrink: 0;
+}
+
+.history-avatar-placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  color: #6366f1;
+}
+
+.history-student-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6366f1;
+  background: #eef2ff;
+  padding: 2px 8px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.history-student-info h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.history-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.history-current-balance {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  padding: 8px 16px;
+  border-radius: 16px;
+}
+
+.history-current-balance span {
+  font-size: 11px;
+  font-weight: 700;
+  color: #047857;
+}
+
+.history-current-balance strong {
+  font-size: 22px;
+  font-weight: 800;
+  color: #065f46;
+}
+
+.history-close-btn {
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 10px 16px;
+  border-radius: 14px;
+}
+
+.history-close-btn:hover {
+  background: #e2e8f0;
+}
+
+/* Quick Topup Form inside History Panel */
+.history-topup-card {
+  margin-top: 18px;
+  background: #f8faff;
+  border: 1px solid #e0e7ff;
+  border-radius: 20px;
+  padding: 18px 20px;
+}
+
+.history-topup-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.history-topup-title span {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1e1b4b;
+}
+
+.history-presets {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.history-preset-btn {
+  min-height: 38px;
+  padding: 6px 14px;
+  border: 1px solid #c7d2fe;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #4338ca;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.history-preset-btn:hover {
+  background: #eef2ff;
+  border-color: #818cf8;
+}
+
+.history-preset-btn.active {
+  background: #4f46e5;
+  color: #ffffff;
+  border-color: #4f46e5;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+}
+
+.history-topup-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.history-input-wrap {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  padding: 0 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.history-input-wrap:focus-within {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+}
+
+.history-currency-symbol {
+  font-size: 18px;
+  font-weight: 800;
+  color: #4f46e5;
+  margin-right: 4px;
+}
+
+.history-amount-input {
+  border: none !important;
+  box-shadow: none !important;
+  padding: 10px 0 !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  background: transparent !important;
+  width: 100%;
+}
+
+.history-topup-submit-btn {
+  white-space: nowrap;
+  font-weight: 800;
+  padding: 11px 20px;
+}
+
+/* History Table Section */
+.history-table-section {
+  margin-top: 24px;
+}
+
+.history-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.history-section-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.history-page-indicator {
+  font-size: 13px;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 4px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.history-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.history-styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.history-styled-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.history-styled-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+.history-row:last-child td {
+  border-bottom: none;
+}
+
+.history-row:hover {
+  background: #fcfdfe;
+}
+
+/* Date & Time */
+.history-date-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.history-date-cell b {
+  color: #1e293b;
+  font-weight: 700;
+}
+
+.history-time {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* Transaction Badges */
+.history-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.badge-purchase {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badge-topup {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.badge-refund {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.badge-adjustment {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+/* Amount Colors: Red for purchase, Green for topup */
+.history-amount-cell {
+  white-space: nowrap;
+}
+
+.history-amount-text {
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+}
+
+.amount-red {
+  color: #dc2626 !important; /* ยอดเงินสีแดงเมื่อซื้อสินค้า */
+  text-shadow: 0 0 1px rgba(220, 38, 38, 0.15);
+}
+
+.amount-green {
+  color: #16a34a !important; /* ยอดเงินสีเขียวเมื่อเติมเงิน */
+  text-shadow: 0 0 1px rgba(22, 163, 74, 0.15);
+}
+
+.amount-neutral {
+  color: #475569;
+}
+
+/* Balance Flow */
+.history-balance-flow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.history-flow-arrow {
+  color: #94a3b8;
+  font-weight: 800;
+}
+
+.flow-after-more {
+  color: #059669;
+  font-weight: 800;
+}
+
+.flow-after-less {
+  color: #e11d48;
+  font-weight: 800;
+}
+
+/* Note & Reference */
+.history-note-cell {
+  max-width: 260px;
+}
+
+.history-note-text {
+  color: #1e293b;
+  font-weight: 500;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.history-ref-tag {
+  display: inline-block;
+  margin-top: 3px;
+  font-size: 11px;
+  font-family: monospace;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Empty State */
+.history-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  background: #f8fafc;
+  border-radius: 18px;
+  border: 1px dashed #cbd5e1;
+}
+
+.history-empty-icon {
+  font-size: 42px;
+  margin-bottom: 8px;
+}
+
+.history-empty-state h4 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: #1e293b;
+}
+
+/* Pagination Controls */
+.history-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pagination-info {
+  font-size: 13px;
+}
+
+.pagination-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pagination-btn {
+  min-height: 38px;
+  padding: 0 13px;
+  border-radius: 11px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-number {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: grid;
+  place-items: center;
+}
+
+.pagination-number:hover {
+  background: #f3f4f6;
+}
+
+.pagination-number.active {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+}
+
+.pagination-ellipsis {
+  padding: 0 4px;
+  color: #94a3b8;
+  font-weight: 800;
+}
+
+@media (max-width: 800px) {
+  .history-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+
+  .history-header-actions {
+    justify-content: space-between;
+  }
+
+  .history-current-balance {
+    align-items: flex-start;
+  }
+
+  .history-topup-row {
+    grid-template-columns: 1fr;
+  }
+
+  .history-pagination {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .pagination-buttons {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+
+

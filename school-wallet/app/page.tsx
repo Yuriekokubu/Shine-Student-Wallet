@@ -47,7 +47,10 @@ export default function HomePage() {
     const checkAdmin = async () => {
       const { data } = await client.auth.getSession()
       if (mounted) {
-        setIsAdmin(data.session?.user?.app_metadata?.role === 'admin')
+        const role =
+          data.session?.user?.app_metadata?.role ||
+          data.session?.user?.user_metadata?.role
+        setIsAdmin(role === 'admin')
       }
     }
 
