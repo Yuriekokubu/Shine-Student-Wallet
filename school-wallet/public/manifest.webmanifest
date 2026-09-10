@@ -1,0 +1,23 @@
+{
+  "name": "Shine Wallet",
+  "short_name": "Shine Wallet",
+  "description": "กระเป๋าเงินดิจิทัลสำหรับนักเรียน",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/pig-icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pig-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
