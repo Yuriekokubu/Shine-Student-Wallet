@@ -57,7 +57,7 @@ export async function topUpStudent(
   })
 
   if (error) {
-    throw error
+    throw new Error(getSupabaseErrorMessage(error))
   }
 
   if (!data) {
@@ -81,7 +81,13 @@ export async function purchaseProducts(
   })
 
   if (error) {
-    throw error
+    // Supabase errors are plain objects, so `String(error)` becomes `[object Object]`.
+    // Convert them to the actual database error message before throwing.
+    throw new Error(getSupabaseErrorMessage(error))
+  }
+
+  if (!data) {
+    throw new Error('ระบบชำระเงินไม่ส่งผลลัพธ์กลับมา')
   }
 
   return data as PurchaseResult
