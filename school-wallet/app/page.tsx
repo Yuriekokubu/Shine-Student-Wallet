@@ -95,12 +95,19 @@ export default function HomePage() {
   }, [products, cart, customItems])
 
   function addProduct(product: Product) {
+    if (!isAdmin) {
+      setMessage('🔐 การชำระเงินสำหรับ Admin เท่านั้น กรุณา Login Admin ก่อนซื้อสินค้า')
+      return
+    }
+
     const quantity = cart[product.id] || 0
     if (quantity >= Number(product.stock)) return
     setCart((current) => ({ ...current, [product.id]: quantity + 1 }))
   }
 
   function removeProduct(product: Product) {
+    if (!isAdmin) return
+
     const quantity = cart[product.id] || 0
     if (quantity <= 1) {
       setCart((current) => {
@@ -114,6 +121,11 @@ export default function HomePage() {
   }
 
   function addCustomItem() {
+    if (!isAdmin) {
+      setMessage('🔐 การเพิ่มรายการเพื่อชำระเงินสำหรับ Admin เท่านั้น')
+      return
+    }
+
     const name = customName.trim()
     const price = Number(customPrice)
     const quantity = Math.floor(Number(customQuantity))
@@ -131,6 +143,12 @@ export default function HomePage() {
 
   async function checkout() {
     if (!student || total <= 0) return
+
+    if (!isAdmin) {
+      setMessage('🔐 การชำระเงินสำหรับ Admin เท่านั้น กรุณา Login Admin ก่อน')
+      return
+    }
+
     setLoading(true)
     setMessage('กำลังชำระเงิน...')
 
@@ -186,6 +204,11 @@ export default function HomePage() {
             <Link href="/kiosk" className="welcome-action-btn"><span>เปิดจุดขาย</span><strong>→</strong></Link>
             {message && <div className="status error welcome-message">⚠ {message}</div>}
           </section>
+
+          <section className="welcome-poster-card">
+            <img src="/poster.png" alt="Shine Wallet" className="welcome-poster" />
+          </section>
+
           <section className="welcome-features">
             <div className="feature-card feature-purple"><span>📱</span><div><b>สแกนง่าย</b><small>ใช้ QR นักเรียนได้ทันที</small></div></div>
             <div className="feature-card feature-green"><span>💰</span><div><b>รู้ยอดทันที</b><small>ตรวจสอบเงินคงเหลือก่อนซื้อ</small></div></div>
@@ -203,16 +226,85 @@ export default function HomePage() {
             </div>
             <div className="student-balance-box"><span>ยอดเงินคงเหลือ</span><strong>฿{Number(student.balance).toFixed(2)}</strong></div>
           </section>
+
+          {!isAdmin && (
+            <div className="admin-payment-lock">
+              <div className="admin-payment-lock-icon">🔐</div>
+              <div className="admin-payment-lock-content">
+                <strong>ระบบชำระเงินสำหรับ Admin เท่านั้น</strong>
+                <span>นักเรียนสามารถดูสินค้าและยอดเงินได้ แต่ไม่สามารถเพิ่มสินค้าในตะกร้าหรือชำระเงินเอง</span>
+              </div>
+              <Link href="/admin/login" className="btn primary admin-payment-login-btn">Login Admin</Link>
+            </div>
+          )}
+
           <div className="wallet-layout">
             <section className="card product-section">
-              <div className="section-heading wallet-section-heading"><div><span className="section-eyebrow">MENU</span><h2>🍪 เลือกขนม</h2><p className="muted">แตะ + เพื่อเพิ่มลงในรายการ</p></div><span className="product-count">{products.length} สินค้า</span></div>
+              <div className="section-heading wallet-section-heading"><div><span className="section-eyebrow">MENU</span><h2>🍪 เลือกขนม</h2><p className="muted">{isAdmin ? 'แตะ + เพื่อเพิ่มลงในรายการ' : 'ดูรายการสินค้าและราคาได้ที่นี่'}</p></div><span className="product-count">{products.length} สินค้า</span></div>
               {products.length > 0 ? <div className="products">{products.map((product) => <ProductCard key={product.id} product={product} quantity={cart[product.id] || 0} onAdd={() => addProduct(product)} onRemove={() => removeProduct(product)} />)}</div> : <div className="status">ยังไม่มีสินค้าในระบบ</div>}
-              <CustomItemForm name={customName} price={customPrice} quantity={customQuantity} onNameChange={setCustomName} onPriceChange={setCustomPrice} onQuantityChange={setCustomQuantity} onAdd={addCustomItem} />
+              {isAdmin && <CustomItemForm name={customName} price={customPrice} quantity={customQuantity} onNameChange={setCustomName} onPriceChange={setCustomPrice} onQuantityChange={setCustomQuantity} onAdd={addCustomItem} />}
             </section>
-            <CartSummary products={products} cart={cart} customItems={customItems} total={total} balance={student.balance} loading={loading} message={message} onRemoveCustomItem={(id) => setCustomItems((current) => current.filter((item) => item.id !== id))} onCheckout={checkout} />
+            {isAdmin ? (
+              <CartSummary products={products} cart={cart} customItems={customItems} total={total} balance={student.balance} loading={loading} message={message} onRemoveCustomItem={(id) => setCustomItems((current) => current.filter((item) => item.id !== id))} onCheckout={checkout} />
+            ) : (
+              <section className="card admin-payment-side-lock">
+                <div className="admin-payment-side-lock-icon">🔐</div>
+                <h3>ชำระเงินโดย Admin เท่านั้น</h3>
+                <p>ระบบจะไม่อนุญาตให้บัญชีทั่วไปตัดเงินจากกระเป๋านักเรียน</p>
+                <Link href="/admin/login" className="btn primary">Login Admin เพื่อชำระเงิน</Link>
+              </section>
+            )}
           </div>
+
+          {message && !isAdmin && <div className="status error admin-payment-message">{message}</div>}
         </>
       )}
+
+      <style jsx>{`
+        .welcome-poster-card {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          border-radius: 28px;
+          background: #fff;
+          box-shadow: 0 18px 50px rgba(15, 23, 42, 0.1);
+        }
+        .welcome-poster {
+          display: block;
+          width: 100%;
+          height: auto;
+          max-height: 420px;
+          object-fit: contain;
+        }
+        .admin-payment-lock { display: flex; align-items: center; gap: 14px; margin: 18px 0; padding: 16px 18px; border: 1px solid #fed7aa; border-radius: 20px; background: #fff7ed; color: #9a3412; }
+        .admin-payment-lock-icon { width: 46px; height: 46px; flex: 0 0 46px; display: grid; place-items: center; border-radius: 15px; background: #ffedd5; font-size: 23px; }
+        .admin-payment-lock-content { min-width: 0; flex: 1; }
+        .admin-payment-lock-content strong, .admin-payment-lock-content span { display: block; }
+        .admin-payment-lock-content strong { font-size: 15px; }
+        .admin-payment-lock-content span { margin-top: 3px; color: #c2410c; font-size: 13px; line-height: 1.5; }
+        .admin-payment-login-btn { flex: 0 0 auto; }
+        .admin-payment-side-lock { display: flex; min-height: 260px; flex-direction: column; align-items: center; justify-content: center; padding: 28px; text-align: center; }
+        .admin-payment-side-lock-icon { width: 70px; height: 70px; display: grid; place-items: center; border-radius: 22px; background: #fff7ed; font-size: 34px; }
+        .admin-payment-side-lock h3 { margin: 14px 0 6px; color: #172033; }
+        .admin-payment-side-lock p { max-width: 330px; margin: 0 0 18px; color: #64748b; line-height: 1.6; }
+        .admin-payment-message { margin-top: 14px; }
+        @media (max-width: 700px) {
+          .welcome-poster-card {
+            width: calc(100% + 32px);
+            margin-left: -16px;
+            border-radius: 0;
+            box-shadow: none;
+          }
+          .welcome-poster {
+            width: 100%;
+            max-height: none;
+            object-fit: cover;
+          }
+          .admin-payment-lock { align-items: flex-start; flex-wrap: wrap; }
+          .admin-payment-login-btn { width: 100%; }
+        }
+      `}</style>
     </main>
   )
 }

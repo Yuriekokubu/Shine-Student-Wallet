@@ -32,6 +32,15 @@ export type WalletTransaction = {
   created_at: string
 }
 
+export type StudentTransaction = WalletTransaction & {
+  items: Array<{
+    name: string
+    quantity: number
+    unit_price: number
+    subtotal: number
+  }>
+}
+
 export type CartItem = {
   product_id?: string
   custom_name?: string

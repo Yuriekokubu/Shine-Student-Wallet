@@ -1,5 +1,5 @@
 import { supabase } from '../supabase'
-import type { Student, WalletTransaction } from '../../types/school-wallet'
+import type { Student, StudentTransaction, WalletTransaction } from '../../types/school-wallet'
 
 const STUDENT_FIELDS =
   'id,student_code,full_name,class_name,balance,qr_token,photo_url,active,created_at'
@@ -97,6 +97,50 @@ export async function getStudentTransactions(
   return {
     data: (data ?? []) as WalletTransaction[],
     error,
+  }
+}
+
+/**
+ * สำหรับหน้า /student ที่เป็น public:
+ * ใช้ QR token เป็นตัวระบุนักเรียน แทนการเปิดสิทธิ์อ่าน wallet_transactions ให้ anon
+ * โหลดทีละหน้า และดึงเกินมา 1 รายการเพื่อรู้ว่ามีหน้าถัดไปหรือไม่
+ */
+export async function getPublicStudentTransactions(
+  token: string,
+  page = 1,
+  pageSize = 5,
+): Promise<{ data: StudentTransaction[]; error: Error | null; hasMore: boolean }> {
+  if (!supabase) {
+    return { data: [], error: new Error('ยังไม่ได้ตั้งค่า Supabase'), hasMore: false }
+  }
+
+  const cleanToken = token.trim().replace(/^SW:/i, '')
+
+  if (!cleanToken) {
+    return { data: [], error: new Error('ไม่พบ QR Token ของนักเรียน'), hasMore: false }
+  }
+
+  const safePage = Math.max(1, Math.floor(page))
+  const safePageSize = Math.min(20, Math.max(1, Math.floor(pageSize)))
+  const offset = (safePage - 1) * safePageSize
+
+  const { data, error } = await supabase.rpc('get_student_transactions_by_qr_paged', {
+    p_qr_token: cleanToken,
+    p_offset: offset,
+    p_limit: safePageSize + 1,
+  })
+
+  if (error) {
+    return { data: [], error, hasMore: false }
+  }
+
+  const rows = (data ?? []) as StudentTransaction[]
+  const hasMore = rows.length > safePageSize
+
+  return {
+    data: rows.slice(0, safePageSize),
+    error: null,
+    hasMore,
   }
 }
 
