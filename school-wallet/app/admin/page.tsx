@@ -406,7 +406,7 @@ export default function AdminPage() {
             <div className="student-list">
               {filtered.filter((student) => student.active).map((student) => (
                 <div className="student-row" key={student.id}>
-                  <div className="student-main">{student.photo_url ? <img src={student.photo_url} alt="" className="student-avatar" /> : <div className="student-avatar-placeholder student-avatar">👤</div>}<div><b>{student.full_name}</b><div className="muted">{student.student_code} · {student.class_name || 'ไม่ระบุชั้น'}</div></div></div>
+                  <div className="student-main"><Link href={`/?student=${encodeURIComponent(student.qr_token)}`} className="student-avatar-link" aria-label={`ไปหน้าซื้อสินค้าสำหรับ ${student.full_name}`} title="คลิกรูปเพื่อไปหน้าซื้อสินค้า">{student.photo_url ? <img src={student.photo_url} alt={`รูปนักเรียน ${student.full_name}`} className="student-avatar" /> : <div className="student-avatar-placeholder student-avatar">👤</div>}</Link><div><b>{student.full_name}</b><div className="muted">{student.student_code} · {student.class_name || 'ไม่ระบุชั้น'}</div></div></div>
                   <div className="student-balance">฿{Number(student.balance).toFixed(2)}</div>
                   <div className="student-actions"><button className="btn primary" onClick={() => openHistory(student)}>＋ เติมเงิน</button><button className="btn" onClick={() => showQr(student)}>▦ QR</button><button className="btn" onClick={() => openEdit(student)}>✎ แก้ไข</button><button className="btn danger-btn" onClick={() => requestDeleteStudent(student)}>ปิดใช้งาน</button></div>
                 </div>
