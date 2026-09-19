@@ -150,6 +150,9 @@ export default function StudentPage() {
 
         {!student ? (
           <section className="student-scan-card">
+            <button type="button" className="student-back-button" onClick={() => { window.location.href = '/' }} aria-label="กลับหน้าหลัก">
+              ← หน้าหลัก
+            </button>
             <div className="student-scan-icon">▦</div>
             <div className="student-scan-title">สแกน QR Code</div>
             <p className="student-scan-description">สแกน QR Code ประจำตัวนักเรียนเพื่อดูยอดเงินคงเหลือ</p>
@@ -277,6 +280,29 @@ export default function StudentPage() {
         .student-bg-orb-one { width:240px;height:240px;top:110px;left:-150px;background:rgba(129,140,248,.16); }
         .student-bg-orb-two { width:300px;height:300px;right:-190px;bottom:70px;background:rgba(45,212,191,.1); }
         .student-container { position:relative;z-index:1;width:min(100%,520px);margin:0 auto; }
+        .student-back-button {
+          align-self: flex-start;
+          margin-bottom: 14px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          min-height: 40px;
+          padding: 0 13px;
+          border: 1px solid #dbeafe;
+          border-radius: 12px;
+          background: #ffffff;
+          color: #2563eb;
+          font: inherit;
+          font-size: 13px;
+          font-weight: 800;
+          cursor: pointer;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+        }
+
+        .student-back-button:hover {
+          background: #eff6ff;
+        }
+
         .student-header { display:flex;align-items:center;justify-content:center;gap:11px;margin-bottom:20px; }
         .student-logo { width:48px;height:48px;display:grid;place-items:center;border-radius:15px;background:linear-gradient(135deg,#635bff,#4f46e5);color:#fff;font-size:24px;box-shadow:0 10px 24px rgba(79,70,229,.24); }
         .student-brand { color:#252b45;font-size:16px;font-weight:800;letter-spacing:1.2px;line-height:1.15; }

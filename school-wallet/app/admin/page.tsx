@@ -50,6 +50,8 @@ export default function AdminPage() {
   const [history, setHistory] = useState<WalletTransaction[]>([])
   const [historyPage, setHistoryPage] = useState(1)
   const historyPageSize = 8
+  const [realtimePage, setRealtimePage] = useState(1)
+  const realtimePageSize = 8
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
@@ -70,6 +72,18 @@ export default function AdminPage() {
     const start = (historyPage - 1) * historyPageSize
     return selectedHistory.slice(start, start + historyPageSize)
   }, [selectedHistory, historyPage, historyPageSize])
+
+  const totalRealtimePages = Math.max(1, Math.ceil(transactions.length / realtimePageSize))
+  const paginatedRealtime = useMemo(() => {
+    const start = (realtimePage - 1) * realtimePageSize
+    return transactions.slice(start, start + realtimePageSize)
+  }, [transactions, realtimePage, realtimePageSize])
+
+  useEffect(() => {
+    if (realtimePage > totalRealtimePages) {
+      setRealtimePage(totalRealtimePages)
+    }
+  }, [realtimePage, totalRealtimePages])
 
   const [newName, setNewName] = useState('')
   const [newCode, setNewCode] = useState('')
@@ -467,8 +481,9 @@ export default function AdminPage() {
               <p className="muted">เมื่อมีการเติมเงินหรือซื้อสินค้า รายการจะปรากฏที่นี่ทันที</p>
             </div>
           ) : (
-            <div className="realtime-list">
-              {transactions.slice(0, 100).map((transaction) => {
+            <>
+              <div className="realtime-list">
+              {paginatedRealtime.map((transaction) => {
                 const student = students.find((item) => item.id === transaction.student_id)
                 const isTopup = transaction.type === 'topup'
                 return (
@@ -500,6 +515,47 @@ export default function AdminPage() {
                 )
               })}
             </div>
+            <div className="realtime-pagination">
+              <span className="realtime-pagination-info">
+                หน้า {realtimePage} / {totalRealtimePages} · แสดง {paginatedRealtime.length} จาก {transactions.length} รายการ
+              </span>
+              <div className="realtime-pagination-buttons">
+                <button
+                  type="button"
+                  className="realtime-pagination-btn"
+                  onClick={() => setRealtimePage((page) => Math.max(1, page - 1))}
+                  disabled={realtimePage === 1}
+                >
+                  ← ก่อนหน้า
+                </button>
+                <div className="realtime-pagination-pages">
+                  {Array.from({ length: totalRealtimePages }, (_, index) => index + 1)
+                    .slice(
+                      Math.max(0, realtimePage - 3),
+                      Math.min(totalRealtimePages, realtimePage + 2),
+                    )
+                    .map((page) => (
+                      <button
+                        type="button"
+                        key={page}
+                        className={`realtime-pagination-number ${page === realtimePage ? 'active' : ''}`}
+                        onClick={() => setRealtimePage(page)}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                </div>
+                <button
+                  type="button"
+                  className="realtime-pagination-btn"
+                  onClick={() => setRealtimePage((page) => Math.min(totalRealtimePages, page + 1))}
+                  disabled={realtimePage === totalRealtimePages}
+                >
+                  ถัดไป →
+                </button>
+              </div>
+            </div>
+            </>
           )}
         </div>
       ) : tab === 'students' ? (
@@ -522,7 +578,7 @@ export default function AdminPage() {
               {filtered.filter((student) => student.active).map((student) => (
                 <div className="student-row" key={student.id}>
                   <div className="student-main"><Link href={`/?student=${encodeURIComponent(student.qr_token)}`} className="student-avatar-link" aria-label={`ไปหน้าซื้อสินค้าสำหรับ ${student.full_name}`} title="คลิกรูปเพื่อไปหน้าซื้อสินค้า">{student.photo_url ? <img src={student.photo_url} alt={`รูปนักเรียน ${student.full_name}`} className="student-avatar" /> : <div className="student-avatar-placeholder student-avatar">👤</div>}</Link><div><b>{student.full_name}</b><div className="muted">{student.student_code} · {student.class_name || 'ไม่ระบุชั้น'}</div></div></div>
-                  <div className="student-balance">฿{Number(student.balance).toFixed(2)}</div>
+                  <div className={`student-balance ${Number(student.balance) !== 0 ? 'has-balance' : ''}`}>฿{Number(student.balance).toFixed(2)}</div>
                   <div className="student-actions"><button className="btn primary" onClick={() => openTopupModal(student)}>＋ เติมเงิน</button><button className="btn history-open-btn" onClick={() => openHistory(student)}>📜 ประวัติ</button><button className="btn" onClick={() => showQr(student)}>▦ QR</button><button className="btn" onClick={() => openEdit(student)}>✎ แก้ไข</button><button className="btn danger-btn" onClick={() => requestDeleteStudent(student)}>ปิดใช้งาน</button></div>
                 </div>
               ))}
@@ -847,32 +903,6 @@ export default function AdminPage() {
       <nav className="admin-mobile-menu" aria-label="Admin Mobile Navigation">
         <button
           type="button"
-          className={`admin-menu-item ${tab === 'students' ? 'active' : ''}`}
-          onClick={() => {
-            setTab('students')
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-          }}
-        >
-          <span className="admin-menu-icon">👨‍🎓</span>
-          <b className="admin-menu-label">นักเรียน</b>
-          <small className="admin-menu-sub">{students.filter((s) => s.active).length} คน</small>
-        </button>
-
-        <button
-          type="button"
-          className={`admin-menu-item ${tab === 'products' ? 'active' : ''}`}
-          onClick={() => {
-            setTab('products')
-            window.scrollTo({ top: 0, behavior: 'smooth' })
-          }}
-        >
-          <span className="admin-menu-icon">🛍️</span>
-          <b className="admin-menu-label">สินค้า</b>
-          <small className="admin-menu-sub">{products.filter((p) => p.active).length} ชิ้น</small>
-        </button>
-
-        <button
-          type="button"
           className={`admin-menu-item ${tab === 'realtime' ? 'active' : ''}`}
           onClick={() => {
             setTab('realtime')
@@ -904,15 +934,6 @@ export default function AdminPage() {
           <small className="admin-menu-sub">ด่วน</small>
         </button>
 
-        <button
-          type="button"
-          className="admin-menu-item admin-menu-logout"
-          onClick={requestLogout}
-        >
-          <span className="admin-menu-icon">🚪</span>
-          <b className="admin-menu-label">ออกระบบ</b>
-          <small className="admin-menu-sub">Logout</small>
-        </button>
       </nav>
 
       {/* Top Up Modal */}
@@ -1239,7 +1260,93 @@ export default function AdminPage() {
           color: #7c3aed;
         }
 
+        .student-balance.has-balance {
+          color: #16a34a;
+        }
+
+        .realtime-pagination {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          margin-top: 18px;
+          padding-top: 16px;
+          border-top: 1px solid #e2e8f0;
+        }
+
+        .realtime-pagination-info {
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 700;
+          text-align: center;
+        }
+
+        .realtime-pagination-buttons {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .realtime-pagination-btn,
+        .realtime-pagination-number {
+          min-height: 38px;
+          border: 1px solid #d1d5db;
+          border-radius: 11px;
+          background: #fff;
+          color: #374151;
+          font: inherit;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .realtime-pagination-btn {
+          padding: 0 12px;
+        }
+
+        .realtime-pagination-number {
+          width: 38px;
+          padding: 0;
+        }
+
+        .realtime-pagination-pages {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .realtime-pagination-btn:hover:not(:disabled),
+        .realtime-pagination-number:hover {
+          background: #f3f4f6;
+        }
+
+        .realtime-pagination-number.active {
+          border-color: #4f46e5;
+          background: #4f46e5;
+          color: #fff;
+          box-shadow: 0 4px 10px rgba(79,70,229,.2);
+        }
+
+        .realtime-pagination-btn:disabled {
+          opacity: .4;
+          cursor: not-allowed;
+        }
+
         @media (max-width: 600px) {
+          .realtime-pagination {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .realtime-pagination-buttons {
+            justify-content: center;
+            flex-wrap: wrap;
+          }
+
+          .realtime-pagination-info {
+            text-align: center;
+          }
+
           .realtime-summary {
             grid-template-columns: 1fr;
           }

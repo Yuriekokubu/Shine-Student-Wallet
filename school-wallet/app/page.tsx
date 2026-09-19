@@ -105,11 +105,23 @@ export default function HomePage() {
     return () => { cancelled = true }
   }, [token])
 
+  // แสดงเฉพาะสินค้าที่มีสต็อกเหลือมากกว่า 0
+  const availableProducts = useMemo(
+    () => products.filter((product) => Number(product.stock) > 0),
+    [products],
+  )
+
   const total = useMemo(() => {
-    const productTotal = products.reduce((sum, product) => sum + Number(product.price) * (cart[product.id] || 0), 0)
-    const customTotal = customItems.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0)
+    const productTotal = availableProducts.reduce(
+      (sum, product) => sum + Number(product.price) * (cart[product.id] || 0),
+      0,
+    )
+    const customTotal = customItems.reduce(
+      (sum, item) => sum + Number(item.price) * item.quantity,
+      0,
+    )
     return productTotal + customTotal
-  }, [products, cart, customItems])
+  }, [availableProducts, cart, customItems])
 
   function addProduct(product: Product) {
     if (!isAdmin) {
@@ -170,13 +182,21 @@ export default function HomePage() {
     setMessage('กำลังชำระเงิน...')
 
     const items: CartItem[] = [
-      ...Object.entries(cart).filter(([, quantity]) => quantity > 0).map(([product_id, quantity]) => ({ product_id, quantity })),
-      ...customItems.map((item) => ({ custom_name: item.name, custom_price: item.price, quantity: item.quantity })),
+      ...Object.entries(cart)
+        .filter(([, quantity]) => quantity > 0)
+        .map(([product_id, quantity]) => ({ product_id, quantity })),
+      ...customItems.map((item) => ({
+        custom_name: item.name,
+        custom_price: item.price,
+        quantity: item.quantity,
+      })),
     ]
 
     try {
       const result = await purchaseProducts(student.id, items)
-      setStudent((current) => current ? { ...current, balance: Number(result.balance) } : current)
+      setStudent((current) =>
+        current ? { ...current, balance: Number(result.balance) } : current,
+      )
       setCart({})
       setCustomItems([])
       setMessage(`ชำระเงินสำเร็จ ฿${Number(result.total).toFixed(2)}`)
@@ -260,12 +280,58 @@ export default function HomePage() {
 
           <div className="wallet-layout">
             <section className="card product-section">
-              <div className="section-heading wallet-section-heading"><div><span className="section-eyebrow">MENU</span><h2>🍪 เลือกขนม</h2><p className="muted">{isAdmin ? 'แตะ + เพื่อเพิ่มลงในรายการ' : 'ดูรายการสินค้าและราคาได้ที่นี่'}</p></div><span className="product-count">{products.length} สินค้า</span></div>
-              {products.length > 0 ? <div className="products">{products.map((product) => <ProductCard key={product.id} product={product} quantity={cart[product.id] || 0} onAdd={() => addProduct(product)} onRemove={() => removeProduct(product)} />)}</div> : <div className="status">ยังไม่มีสินค้าในระบบ</div>}
-              {isAdmin && <CustomItemForm name={customName} price={customPrice} quantity={customQuantity} onNameChange={setCustomName} onPriceChange={setCustomPrice} onQuantityChange={setCustomQuantity} onAdd={addCustomItem} />}
+              <div className="section-heading wallet-section-heading">
+                <div>
+                  <span className="section-eyebrow">MENU</span>
+                  <h2>🍪 เลือกขนม</h2>
+                  <p className="muted">{isAdmin ? 'แตะ + เพื่อเพิ่มลงในรายการ' : 'ดูรายการสินค้าและราคาได้ที่นี่'}</p>
+                </div>
+                <span className="product-count">{availableProducts.length} สินค้า</span>
+              </div>
+
+              {availableProducts.length > 0 ? (
+                <div className="products">
+                  {availableProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      quantity={cart[product.id] || 0}
+                      onAdd={() => addProduct(product)}
+                      onRemove={() => removeProduct(product)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="status">ขณะนี้ไม่มีสินค้าที่มีสต็อก</div>
+              )}
+
+              {isAdmin && (
+                <CustomItemForm
+                  name={customName}
+                  price={customPrice}
+                  quantity={customQuantity}
+                  onNameChange={setCustomName}
+                  onPriceChange={setCustomPrice}
+                  onQuantityChange={setCustomQuantity}
+                  onAdd={addCustomItem}
+                />
+              )}
             </section>
+
             {isAdmin ? (
-              <CartSummary products={products} cart={cart} customItems={customItems} total={total} balance={student.balance} loading={loading} message={message} onRemoveCustomItem={(id) => setCustomItems((current) => current.filter((item) => item.id !== id))} onCheckout={checkout} />
+              <CartSummary
+                products={availableProducts}
+                cart={cart}
+                customItems={customItems}
+                total={total}
+                balance={student.balance}
+                loading={loading}
+                message={message}
+                onRemoveCustomItem={(id) =>
+                  setCustomItems((current) => current.filter((item) => item.id !== id))
+                }
+                onCheckout={checkout}
+              />
             ) : (
               <section className="card admin-payment-side-lock">
                 <div className="admin-payment-side-lock-icon">🔐</div>
@@ -280,136 +346,6 @@ export default function HomePage() {
         </>
       )}
 
-      <style jsx>{`
-        .welcome-poster-card {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          border-radius: 28px;
-          background: #fff;
-          box-shadow: 0 18px 50px rgba(15, 23, 42, 0.1);
-        }
-        .welcome-poster {
-          display: block;
-          width: 100%;
-          height: auto;
-          max-height: 420px;
-          object-fit: contain;
-        }
-        .welcome-actions {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          align-items: stretch;
-          margin-top: 20px;
-        }
-        .welcome-action-btn {
-          position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          min-height: 68px;
-          padding: 10px 16px;
-          border-radius: 20px;
-          color: #fff;
-          background: linear-gradient(135deg, #7c3aed 0%, #6366f1 55%, #4f46e5 100%);
-          box-shadow: 0 12px 28px rgba(99, 102, 241, 0.28);
-          text-decoration: none;
-          font-weight: 800;
-          overflow: hidden;
-          transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
-        }
-        .welcome-action-btn::after {
-          content: '';
-          position: absolute;
-          width: 100px;
-          height: 100px;
-          right: -35px;
-          top: -45px;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.13);
-        }
-        .welcome-action-btn:hover {
-          transform: translateY(-3px);
-          filter: brightness(1.04);
-          box-shadow: 0 16px 34px rgba(99, 102, 241, 0.34);
-        }
-        .welcome-action-btn:active {
-          transform: translateY(-1px) scale(0.99);
-        }
-        .welcome-action-icon {
-          position: relative;
-          z-index: 1;
-          display: grid;
-          place-items: center;
-          width: 42px;
-          height: 42px;
-          flex: 0 0 42px;
-          border-radius: 14px;
-          background: rgba(255, 255, 255, 0.18);
-          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-          font-size: 21px;
-        }
-        .welcome-action-btn > span:nth-child(2) {
-          position: relative;
-          z-index: 1;
-          flex: 1;
-          font-size: 15px;
-          white-space: nowrap;
-        }
-        .welcome-action-btn > strong {
-          position: relative;
-          z-index: 1;
-          display: grid;
-          place-items: center;
-          width: 30px;
-          height: 30px;
-          flex: 0 0 30px;
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.15);
-          font-size: 21px;
-        }
-        .admin-payment-lock { display: flex; align-items: center; gap: 14px; margin: 18px 0; padding: 16px 18px; border: 1px solid #fed7aa; border-radius: 20px; background: #fff7ed; color: #9a3412; }
-        .admin-payment-lock-icon { width: 46px; height: 46px; flex: 0 0 46px; display: grid; place-items: center; border-radius: 15px; background: #ffedd5; font-size: 23px; }
-        .admin-payment-lock-content { min-width: 0; flex: 1; }
-        .admin-payment-lock-content strong, .admin-payment-lock-content span { display: block; }
-        .admin-payment-lock-content strong { font-size: 15px; }
-        .admin-payment-lock-content span { margin-top: 3px; color: #c2410c; font-size: 13px; line-height: 1.5; }
-        .admin-payment-login-btn { flex: 0 0 auto; }
-        .admin-payment-side-lock { display: flex; min-height: 260px; flex-direction: column; align-items: center; justify-content: center; padding: 28px; text-align: center; }
-        .admin-payment-side-lock-icon { width: 70px; height: 70px; display: grid; place-items: center; border-radius: 22px; background: #fff7ed; font-size: 34px; }
-        .admin-payment-side-lock h3 { margin: 14px 0 6px; color: #172033; }
-        .admin-payment-side-lock p { max-width: 330px; margin: 0 0 18px; color: #64748b; line-height: 1.6; }
-        .admin-payment-message { margin-top: 14px; }
-        @media (max-width: 700px) {
-          .welcome-poster-card {
-            width: calc(100% + 32px);
-            margin-left: -16px;
-            border-radius: 0;
-            box-shadow: none;
-          }
-          .welcome-poster {
-            width: 100%;
-            max-height: none;
-            object-fit: cover;
-          }
-          .welcome-actions {
-            grid-template-columns: 1fr;
-            gap: 10px;
-          }
-          .welcome-action-btn {
-            width: 100%;
-            min-height: 64px;
-          }
-          .welcome-action-btn > span:nth-child(2) {
-            font-size: 16px;
-          }
-          .admin-payment-lock { align-items: flex-start; flex-wrap: wrap; }
-          .admin-payment-login-btn { width: 100%; }
-        }
-      `}</style>
     </main>
   )
 }
