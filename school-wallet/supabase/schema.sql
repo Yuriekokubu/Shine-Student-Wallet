@@ -13,8 +13,6 @@ create or replace function public.topup_student(p_student_id uuid,p_amount numer
 create or replace function public.purchase_products(p_student_id uuid,p_items jsonb) returns jsonb language plpgsql security definer set search_path=public as $$ declare s public.students; item jsonb; p public.products; qty int; item_name text; item_price numeric; total numeric:=0; new_balance numeric; o public.orders; begin if not public.is_admin() then raise exception 'Admin role required'; end if; select * into s from students where id=p_student_id and active=true for update; if not found then raise exception 'Student not found or inactive'; end if; for item in select * from jsonb_array_elements(p_items) loop qty:=(item->>'quantity')::int; if qty<=0 then raise exception 'Quantity must be greater than zero'; end if; if nullif(item->>'custom_name','') is not null then item_name:=trim(item->>'custom_name'); item_price:=(item->>'custom_price')::numeric; if item_name='' or item_price is null or item_price<0 then raise exception 'Invalid custom item'; end if; else select * into p from products where id=(item->>'product_id')::uuid and active=true for update; if not found then raise exception 'Product not found'; end if; if p.stock<qty then raise exception 'Insufficient stock for %',p.name; end if; item_name:=p.name; item_price:=p.price; end if; total:=total+item_price*qty; end loop; if total<=0 or s.balance<total then raise exception 'Insufficient balance'; end if; new_balance:=s.balance-total; update students set balance=new_balance where id=s.id; insert into orders(student_id,total,status) values(s.id,total,'paid') returning * into o; for item in select * from jsonb_array_elements(p_items) loop qty:=(item->>'quantity')::int; if nullif(item->>'custom_name','') is not null then item_name:=trim(item->>'custom_name'); item_price:=(item->>'custom_price')::numeric; insert into order_items(order_id,product_id,product_name,unit_price,quantity,subtotal) values(o.id,null,item_name,item_price,qty,item_price*qty); else select * into p from products where id=(item->>'product_id')::uuid; item_name:=p.name; item_price:=p.price; update products set stock=stock-qty where id=p.id; insert into order_items(order_id,product_id,product_name,unit_price,quantity,subtotal) values(o.id,p.id,item_name,item_price,qty,item_price*qty); end if; end loop; insert into wallet_transactions(student_id,type,amount,balance_before,balance_after,reference,note) values(s.id,'purchase',total,s.balance,new_balance,o.id::text,'ซื้อสินค้าโรงเรียน'); return jsonb_build_object('order_id',o.id,'balance',new_balance,'total',total); end; $$;
 
 -- Public student transaction history: ใช้ QR token เท่านั้น และไม่เปิด SELECT ตรงไปยัง wallet_transactions
--- หมายเหตุ: reference ของรายการเติมเงินอาจเป็นข้อความ เช่น KIOSK-1789191355122
--- จึงห้าม cast reference เป็น UUID ตรง ๆ; เฉพาะ reference ที่เป็น UUID ของ order เท่านั้นจึงนำไปหา order_items
 create or replace function public.get_student_transactions_by_qr(p_qr_token text)
 returns table(id uuid,student_id uuid,type text,amount numeric,balance_before numeric,balance_after numeric,reference text,note text,created_at timestamptz,items jsonb)
 language sql stable security definer set search_path = public
@@ -89,3 +87,22 @@ create policy "student photos public read" on storage.objects for select to publ
 create policy "student photos admin upload" on storage.objects for insert to authenticated with check(bucket_id='student-photos' and public.is_admin());
 create policy "student photos admin update" on storage.objects for update to authenticated using(bucket_id='student-photos' and public.is_admin()) with check(bucket_id='student-photos' and public.is_admin());
 create policy "student photos admin delete" on storage.objects for delete to authenticated using(bucket_id='student-photos' and public.is_admin());
+
+-- เปิด Supabase Realtime สำหรับข้อมูลหลักของ Shine Wallet
+-- เพื่อให้ทุกหน้าสะท้อนยอดเงิน สินค้า และธุรกรรมที่เปลี่ยนแปลงทันที
+do $
+declare
+  target_table text;
+begin
+  foreach target_table in array array['students', 'products', 'wallet_transactions'] loop
+    if not exists (
+      select 1
+      from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = target_table
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', target_table);
+    end if;
+  end loop;
+end $;

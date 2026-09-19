@@ -12,6 +12,7 @@ import {
   topUpStudent,
 } from '../../lib/services/wallet-service'
 import { supabase } from '../../lib/supabase'
+import { useWalletRealtime } from '../../lib/use-wallet-realtime'
 import type { Student } from '../../types/school-wallet'
 
 const TOPUP_AMOUNTS = [20, 50, 100, 200, 500]
@@ -28,6 +29,19 @@ export default function KioskPage() {
   const [topupMessage, setTopupMessage] = useState('')
   const [topupSuccess, setTopupSuccess] = useState(false)
   const [adminLoggedIn, setAdminLoggedIn] = useState(false)
+
+
+  const refreshSelectedStudent = useCallback(async () => {
+    if (!student) return
+    const result = await getActiveStudentByToken(student.qr_token)
+    if (!result.error && result.data) {
+      setStudent(result.data)
+    }
+  }, [student])
+
+  useWalletRealtime(() => {
+    void refreshSelectedStudent()
+  }, Boolean(student))
 
   useEffect(() => {
     let mounted = true

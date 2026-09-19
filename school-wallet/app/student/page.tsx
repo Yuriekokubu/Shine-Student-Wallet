@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import QrScanner from '../../components/QrScanner'
 import { getActiveStudentByToken, getPublicStudentTransactions } from '../../lib/services/student-service'
 import type { Student, StudentTransaction } from '../../types/school-wallet'
+import { useWalletRealtime } from '../../lib/use-wallet-realtime'
 
 const TRANSACTIONS_PER_PAGE = 5
 
@@ -98,6 +99,22 @@ export default function StudentPage() {
     maximumFractionDigits: 2,
   })
   const transactionStudentName = student?.full_name ?? ''
+
+
+  useWalletRealtime(() => {
+    if (!scanToken) return
+
+    void (async () => {
+      const { data, error: queryError } = await getActiveStudentByToken(scanToken)
+      if (!queryError && data) {
+        setStudent(data)
+      }
+
+      if (showTransactions) {
+        await loadTransactions(transactionsPage)
+      }
+    })()
+  }, Boolean(scanToken))
 
   function formatDate(value: string) {
     return new Date(value).toLocaleString('th-TH', {

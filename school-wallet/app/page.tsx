@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import CartSummary from '../components/wallet/CartSummary'
 import CustomItemForm from '../components/wallet/CustomItemForm'
@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { getActiveProducts } from '../lib/services/product-service'
 import { getActiveStudentByToken } from '../lib/services/student-service'
 import { purchaseProducts } from '../lib/services/wallet-service'
+import { useWalletRealtime } from '../lib/use-wallet-realtime'
 import type { CartItem, CustomItem, Product, Student } from '../types/school-wallet'
 
 export default function HomePage() {
@@ -23,6 +24,22 @@ export default function HomePage() {
   const [message, setMessage] = useState('')
   const [token, setToken] = useState<string | null | undefined>(undefined)
   const [isAdmin, setIsAdmin] = useState(false)
+
+  const reloadWalletData = useCallback(async () => {
+    const productsResult = await getActiveProducts()
+    if (productsResult.error) return
+    setProducts(productsResult.data)
+
+    if (!token) return
+    const studentResult = await getActiveStudentByToken(token)
+    if (!studentResult.error && studentResult.data) {
+      setStudent(studentResult.data)
+    }
+  }, [token])
+
+  useWalletRealtime(() => {
+    void reloadWalletData()
+  }, token !== undefined)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)

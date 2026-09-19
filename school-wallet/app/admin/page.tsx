@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import QRCode from 'qrcode'
 import { supabase } from '../../lib/supabase'
+import { useWalletRealtime } from '../../lib/use-wallet-realtime'
 
 type Student = {
   id: string
@@ -52,15 +53,23 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'students' | 'products'>('students')
+  const [tab, setTab] = useState<'students' | 'products' | 'realtime'>('students')
+  const { connected: realtimeConnected, error: realtimeError } = useWalletRealtime(() => {
+    void loadAll()
+  }, authorized)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [qr, setQr] = useState('')
 
-  const totalHistoryPages = Math.max(1, Math.ceil(history.length / historyPageSize))
+  const selectedHistory = useMemo(() => {
+    if (!selected) return []
+    return history.filter((transaction) => transaction.student_id === selected.id)
+  }, [history, selected])
+
+  const totalHistoryPages = Math.max(1, Math.ceil(selectedHistory.length / historyPageSize))
   const paginatedHistory = useMemo(() => {
     const start = (historyPage - 1) * historyPageSize
-    return history.slice(start, start + historyPageSize)
-  }, [history, historyPage, historyPageSize])
+    return selectedHistory.slice(start, start + historyPageSize)
+  }, [selectedHistory, historyPage, historyPageSize])
 
   const [newName, setNewName] = useState('')
   const [newCode, setNewCode] = useState('')
@@ -80,6 +89,7 @@ export default function AdminPage() {
   const [topupNote, setTopupNote] = useState('')
   const [topupReference, setTopupReference] = useState('')
   const [topupLoading, setTopupLoading] = useState(false)
+  const [topupModalOpen, setTopupModalOpen] = useState(false)
 
   const [productName, setProductName] = useState('')
   const [productPrice, setProductPrice] = useState('')
@@ -239,6 +249,19 @@ export default function AdminPage() {
     })
   }
 
+  function openTopupModal(student: Student) {
+    setSelected(student)
+    setTopupAmount('')
+    setTopupReference('')
+    setTopupNote('')
+    setTopupModalOpen(true)
+  }
+
+  function closeTopupModal() {
+    if (topupLoading) return
+    setTopupModalOpen(false)
+  }
+
   async function topup() {
     if (!supabase || !selected) return
     const amount = Number(topupAmount)
@@ -249,7 +272,7 @@ export default function AdminPage() {
       if (error) throw error
       const updated = data as Student
       setStudents((value) => value.map((student) => student.id === selected.id ? updated : student))
-      setSelected(updated); setTopupAmount(''); setTopupReference(''); setTopupNote(''); setMessage(`เติมเงินสำเร็จ ฿${amount.toFixed(2)}`); await openHistory(updated)
+      setSelected(updated); setTopupAmount(''); setTopupReference(''); setTopupNote(''); setMessage(`เติมเงินสำเร็จ ฿${amount.toFixed(2)}`); setTopupModalOpen(false); await openHistory(updated)
     } catch (error) {
       setMessage(`เติมเงินไม่สำเร็จ: ${error instanceof Error ? error.message : String(error)}`)
     } finally { setTopupLoading(false) }
@@ -257,13 +280,37 @@ export default function AdminPage() {
 
   async function openHistory(student: Student) {
     if (!supabase) return
+
     setSelected(student)
-    setHistoryLoading(true)
+    setHistory([])
     setHistoryPage(1)
-    const { data, error } = await supabase.from('wallet_transactions').select('id,student_id,type,amount,balance_before,balance_after,reference,note,created_at').eq('student_id', student.id).order('created_at', { ascending: false })
-    if (error) setMessage(`โหลดประวัติไม่สำเร็จ: ${error.message}`)
-    setHistory((data || []) as WalletTransaction[])
-    setHistoryLoading(false)
+    setHistoryLoading(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('wallet_transactions')
+        .select('id,student_id,type,amount,balance_before,balance_after,reference,note,created_at')
+        .eq('student_id', student.id)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      const studentHistory = ((data || []) as WalletTransaction[]).filter(
+        (transaction) => transaction.student_id === student.id,
+      )
+
+      // ใช้ข้อมูลจากรายการที่โหลดไว้แล้วเป็น fallback เพื่อไม่ให้ประวัติของเด็กคนอื่นปนกัน
+      const fallbackHistory = transactions.filter(
+        (transaction) => transaction.student_id === student.id,
+      )
+
+      setHistory(studentHistory.length > 0 ? studentHistory : fallbackHistory)
+    } catch (error) {
+      setHistory([])
+      setMessage(`โหลดประวัติไม่สำเร็จ: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setHistoryLoading(false)
+    }
   }
 
   async function showQr(student: Student) {
@@ -385,9 +432,77 @@ export default function AdminPage() {
       <div className="admin-tabs">
         <button className={`admin-tab ${tab === 'students' ? 'active' : ''}`} onClick={() => setTab('students')}><span>👨‍🎓</span><b>นักเรียน</b><small>จัดการนักเรียนและเติมเงิน</small></button>
         <button className={`admin-tab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}><span>🛍️</span><b>สินค้า</b><small>จัดการสินค้าและสต็อก</small></button>
+        <button className={`admin-tab ${tab === 'realtime' ? 'active' : ''}`} onClick={() => setTab('realtime')}><span>🔴</span><b>ธุรกรรมเรียลไทม์</b><small>ดูรายการที่เกิดขึ้นทันที</small></button>
       </div>
 
-      {tab === 'students' ? (
+      {tab === 'realtime' ? (
+        <div className="card admin-section realtime-transactions-panel">
+          <div className="section-heading">
+            <div>
+              <h2>🔴 ธุรกรรมแบบเรียลไทม์</h2>
+              <p className="muted">รายการเติมเงินและซื้อสินค้าที่เกิดขึ้นล่าสุดจะเข้ามาอัตโนมัติ โดยไม่ต้องรีเฟรชหน้า</p>
+            </div>
+            <div className={`realtime-status ${realtimeConnected ? 'online' : 'offline'}`}>
+              <span className="realtime-dot" />
+              {realtimeConnected ? 'LIVE เชื่อมต่อแล้ว' : 'กำลังเชื่อมต่อ...'}
+            </div>
+          </div>
+
+          <div className="realtime-summary">
+            <div><span>รายการที่แสดง</span><b>{transactions.length}</b></div>
+            <div><span>เติมเงิน</span><b>{transactions.filter((t) => t.type === 'topup').length}</b></div>
+            <div><span>ซื้อสินค้า</span><b>{transactions.filter((t) => t.type === 'purchase').length}</b></div>
+          </div>
+
+          {realtimeError && (
+          <div className="realtime-error">
+            ⚠️ Realtime ยังเชื่อมต่อไม่ได้: {realtimeError}
+          </div>
+        )}
+
+        {transactions.length === 0 ? (
+            <div className="history-empty-state">
+              <div className="history-empty-icon">📭</div>
+              <h4>ยังไม่มีธุรกรรม</h4>
+              <p className="muted">เมื่อมีการเติมเงินหรือซื้อสินค้า รายการจะปรากฏที่นี่ทันที</p>
+            </div>
+          ) : (
+            <div className="realtime-list">
+              {transactions.slice(0, 100).map((transaction) => {
+                const student = students.find((item) => item.id === transaction.student_id)
+                const isTopup = transaction.type === 'topup'
+                return (
+                  <div className="realtime-transaction" key={transaction.id}>
+                    <div className={`realtime-type-icon ${isTopup ? 'topup' : 'purchase'}`}>
+                      {isTopup ? '＋' : '🛍️'}
+                    </div>
+                    <div className="realtime-transaction-main">
+                      <div className="realtime-transaction-title">
+                        <b>{student?.full_name || 'ไม่พบข้อมูลนักเรียน'}</b>
+                        <span className={`realtime-type-badge ${isTopup ? 'topup' : 'purchase'}`}>
+                          {isTopup ? 'เติมเงิน' : 'ซื้อสินค้า'}
+                        </span>
+                      </div>
+                      <div className="muted">
+                        {student?.student_code || transaction.student_id} · {transaction.note || '-'}
+                      </div>
+                      <small className="muted">
+                        {new Date(transaction.created_at).toLocaleString('th-TH', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
+                      </small>
+                    </div>
+                    <div className={`realtime-amount ${isTopup ? 'topup' : 'purchase'}`}>
+                      {isTopup ? '+' : '-'}฿{Number(transaction.amount).toFixed(2)}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      ) : tab === 'students' ? (
         <>
           <div className="card admin-section">
             <div className="section-heading"><div><h2>เพิ่มนักเรียน</h2><p className="muted">สร้างบัญชีนักเรียนพร้อมรูปและ QR Code</p></div></div>
@@ -408,7 +523,7 @@ export default function AdminPage() {
                 <div className="student-row" key={student.id}>
                   <div className="student-main"><Link href={`/?student=${encodeURIComponent(student.qr_token)}`} className="student-avatar-link" aria-label={`ไปหน้าซื้อสินค้าสำหรับ ${student.full_name}`} title="คลิกรูปเพื่อไปหน้าซื้อสินค้า">{student.photo_url ? <img src={student.photo_url} alt={`รูปนักเรียน ${student.full_name}`} className="student-avatar" /> : <div className="student-avatar-placeholder student-avatar">👤</div>}</Link><div><b>{student.full_name}</b><div className="muted">{student.student_code} · {student.class_name || 'ไม่ระบุชั้น'}</div></div></div>
                   <div className="student-balance">฿{Number(student.balance).toFixed(2)}</div>
-                  <div className="student-actions"><button className="btn primary" onClick={() => openHistory(student)}>＋ เติมเงิน</button><button className="btn" onClick={() => showQr(student)}>▦ QR</button><button className="btn" onClick={() => openEdit(student)}>✎ แก้ไข</button><button className="btn danger-btn" onClick={() => requestDeleteStudent(student)}>ปิดใช้งาน</button></div>
+                  <div className="student-actions"><button className="btn primary" onClick={() => openTopupModal(student)}>＋ เติมเงิน</button><button className="btn history-open-btn" onClick={() => openHistory(student)}>📜 ประวัติ</button><button className="btn" onClick={() => showQr(student)}>▦ QR</button><button className="btn" onClick={() => openEdit(student)}>✎ แก้ไข</button><button className="btn danger-btn" onClick={() => requestDeleteStudent(student)}>ปิดใช้งาน</button></div>
                 </div>
               ))}
             </div>
@@ -422,7 +537,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {selected && (
+      {selected && !topupModalOpen && (
         <div className="card admin-section history-panel">
           {/* Header */}
           <div className="history-header">
@@ -519,13 +634,13 @@ export default function AdminPage() {
               <div>
                 <h3>📜 ประวัติการเงิน &amp; ธุรกรรม</h3>
                 <p className="muted">
-                  {history.length > 0
-                    ? `พบทั้งหมด ${history.length} รายการ (เรียงจากล่าสุด)`
+                  {selectedHistory.length > 0
+                    ? `พบทั้งหมด ${selectedHistory.length} รายการ (เรียงจากล่าสุด)`
                     : 'ยังไม่มีประวัติการทำรายการ'}
                 </p>
               </div>
 
-              {history.length > 0 && (
+              {selectedHistory.length > 0 && (
                 <div className="history-page-indicator">
                   หน้า <b>{historyPage}</b> / {totalHistoryPages}
                 </div>
@@ -536,7 +651,7 @@ export default function AdminPage() {
               <div className="status" style={{ margin: '20px 0' }}>
                 ⏳ กำลังโหลดประวัติการเงิน...
               </div>
-            ) : !history.length ? (
+            ) : !selectedHistory.length ? (
               <div className="history-empty-state">
                 <div className="history-empty-icon">📭</div>
                 <h4>ยังไม่มีรายการประวัติการเงิน</h4>
@@ -649,8 +764,8 @@ export default function AdminPage() {
                   <div className="history-pagination">
                     <div className="pagination-info muted">
                       แสดงรายการที่ {(historyPage - 1) * historyPageSize + 1} -{' '}
-                      {Math.min(historyPage * historyPageSize, history.length)} จากทั้งหมด{' '}
-                      {history.length} รายการ
+                      {Math.min(historyPage * historyPageSize, selectedHistory.length)} จากทั้งหมด{' '}
+                      {selectedHistory.length} รายการ
                     </div>
 
                     <div className="pagination-buttons">
@@ -756,6 +871,19 @@ export default function AdminPage() {
           <small className="admin-menu-sub">{products.filter((p) => p.active).length} ชิ้น</small>
         </button>
 
+        <button
+          type="button"
+          className={`admin-menu-item ${tab === 'realtime' ? 'active' : ''}`}
+          onClick={() => {
+            setTab('realtime')
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+        >
+          <span className="admin-menu-icon">🔴</span>
+          <b className="admin-menu-label">ธุรกรรม</b>
+          <small className="admin-menu-sub">LIVE</small>
+        </button>
+
         <Link href="/kiosk" className="admin-menu-item admin-menu-kiosk">
           <span className="admin-menu-icon">🏪</span>
           <b className="admin-menu-label">จุดขาย</b>
@@ -767,7 +895,7 @@ export default function AdminPage() {
           className="admin-menu-item"
           onClick={() => {
             setTab('students')
-            if (students[0]) openHistory(students[0])
+            if (students[0]) openTopupModal(students[0])
             window.scrollTo({ top: 0, behavior: 'smooth' })
           }}
         >
@@ -786,6 +914,116 @@ export default function AdminPage() {
           <small className="admin-menu-sub">Logout</small>
         </button>
       </nav>
+
+      {/* Top Up Modal */}
+      {topupModalOpen && selected && (
+        <div
+          className="topup-modal-backdrop"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) closeTopupModal()
+          }}
+        >
+          <div className="topup-modal-card" role="dialog" aria-modal="true" aria-labelledby="topup-modal-title">
+            <div className="topup-modal-header">
+              <div className="topup-student-profile">
+                {selected.photo_url ? (
+                  <img src={selected.photo_url} alt="" className="topup-modal-avatar" />
+                ) : (
+                  <div className="topup-modal-avatar topup-modal-avatar-placeholder">👤</div>
+                )}
+                <div>
+                  <span className="topup-modal-badge">เติมเงินนักเรียน</span>
+                  <h2 id="topup-modal-title">{selected.full_name}</h2>
+                  <p>{selected.student_code} · {selected.class_name || 'ไม่ระบุชั้น'}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="topup-modal-close"
+                onClick={closeTopupModal}
+                disabled={topupLoading}
+                aria-label="ปิดหน้าต่างเติมเงิน"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="topup-modal-balance">
+              <span>ยอดเงินปัจจุบัน</span>
+              <strong>฿{Number(selected.balance).toFixed(2)}</strong>
+            </div>
+
+            <div className="topup-modal-presets">
+              {[20, 50, 100, 200, 500].map((preset) => (
+                <button
+                  type="button"
+                  key={preset}
+                  className={`topup-modal-preset ${Number(topupAmount) === preset ? 'active' : ''}`}
+                  onClick={() => setTopupAmount(String(preset))}
+                  disabled={topupLoading}
+                >
+                  ฿{preset}
+                </button>
+              ))}
+            </div>
+
+            <label className="topup-modal-label" htmlFor="admin-topup-amount">จำนวนเงินที่ต้องการเติม</label>
+            <div className="topup-modal-amount-wrap">
+              <span>฿</span>
+              <input
+                id="admin-topup-amount"
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                placeholder="0"
+                value={topupAmount}
+                onChange={(event) => setTopupAmount(event.target.value)}
+                disabled={topupLoading}
+                autoFocus
+              />
+            </div>
+
+            <input
+              className="input topup-modal-input"
+              placeholder="อ้างอิง เช่น เลขสลิป (ถ้ามี)"
+              value={topupReference}
+              onChange={(event) => setTopupReference(event.target.value)}
+              disabled={topupLoading}
+            />
+
+            <input
+              className="input topup-modal-input"
+              placeholder="หมายเหตุ (ถ้ามี)"
+              value={topupNote}
+              onChange={(event) => setTopupNote(event.target.value)}
+              disabled={topupLoading}
+            />
+
+            <div className="topup-modal-actions">
+              <button
+                type="button"
+                className="topup-modal-cancel"
+                onClick={closeTopupModal}
+                disabled={topupLoading}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className="topup-modal-confirm"
+                onClick={topup}
+                disabled={topupLoading || !topupAmount || Number(topupAmount) <= 0}
+              >
+                {topupLoading
+                  ? 'กำลังเติมเงิน...'
+                  : `✓ ยืนยันเติม ${topupAmount ? `฿${Number(topupAmount).toFixed(2)}` : 'เงิน'}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       {confirmModal && (
@@ -842,6 +1080,419 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      <style jsx>{`
+        .realtime-transactions-panel {
+          overflow: hidden;
+        }
+
+        .realtime-status {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 9px 13px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .realtime-status.online {
+          background: #ecfdf5;
+          color: #047857;
+        }
+
+        .realtime-status.offline {
+          background: #fff7ed;
+          color: #c2410c;
+        }
+
+        .realtime-dot {
+          width: 9px;
+          height: 9px;
+          border-radius: 50%;
+          background: currentColor;
+          box-shadow: 0 0 0 4px rgba(16, 185, 129, .12);
+        }
+
+        .realtime-error {
+          margin: 14px 0;
+          padding: 12px 14px;
+          border-radius: 14px;
+          background: #fff7ed;
+          color: #9a3412;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .realtime-summary {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+          margin: 18px 0;
+        }
+
+        .realtime-summary > div {
+          padding: 15px 17px;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          background: #f8fafc;
+        }
+
+        .realtime-summary span,
+        .realtime-summary b {
+          display: block;
+        }
+
+        .realtime-summary span {
+          color: #64748b;
+          font-size: 12px;
+        }
+
+        .realtime-summary b {
+          margin-top: 4px;
+          color: #172033;
+          font-size: 22px;
+        }
+
+        .realtime-list {
+          display: grid;
+          gap: 10px;
+        }
+
+        .realtime-transaction {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 14px;
+          border: 1px solid #e2e8f0;
+          border-radius: 18px;
+          background: #fff;
+        }
+
+        .realtime-type-icon {
+          display: grid;
+          place-items: center;
+          width: 48px;
+          height: 48px;
+          flex: 0 0 48px;
+          border-radius: 15px;
+          font-size: 21px;
+          font-weight: 900;
+        }
+
+        .realtime-type-icon.topup {
+          background: #d1fae5;
+          color: #047857;
+        }
+
+        .realtime-type-icon.purchase {
+          background: #ede9fe;
+          color: #6d28d9;
+        }
+
+        .realtime-transaction-main {
+          min-width: 0;
+          flex: 1;
+        }
+
+        .realtime-transaction-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .realtime-type-badge {
+          padding: 3px 8px;
+          border-radius: 999px;
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+        .realtime-type-badge.topup {
+          background: #ecfdf5;
+          color: #047857;
+        }
+
+        .realtime-type-badge.purchase {
+          background: #f5f3ff;
+          color: #6d28d9;
+        }
+
+        .realtime-transaction-main small {
+          display: block;
+          margin-top: 4px;
+        }
+
+        .realtime-amount {
+          flex: 0 0 auto;
+          font-size: 18px;
+          font-weight: 900;
+        }
+
+        .realtime-amount.topup {
+          color: #059669;
+        }
+
+        .realtime-amount.purchase {
+          color: #7c3aed;
+        }
+
+        @media (max-width: 600px) {
+          .realtime-summary {
+            grid-template-columns: 1fr;
+          }
+
+          .realtime-transaction {
+            align-items: flex-start;
+          }
+
+          .realtime-amount {
+            margin-left: auto;
+          }
+        }
+
+        .topup-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1200;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(15, 23, 42, 0.68);
+          backdrop-filter: blur(7px);
+        }
+
+        .topup-modal-card {
+          width: min(100%, 500px);
+          max-height: calc(100vh - 40px);
+          overflow-y: auto;
+          padding: 24px;
+          border: 1px solid rgba(226, 232, 240, 0.9);
+          border-radius: 28px;
+          background: #ffffff;
+          box-shadow: 0 30px 90px rgba(15, 23, 42, 0.3);
+        }
+
+        .topup-modal-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .topup-student-profile {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          min-width: 0;
+        }
+
+        .topup-modal-avatar {
+          width: 64px;
+          height: 64px;
+          flex: 0 0 64px;
+          overflow: hidden;
+          border-radius: 20px;
+          object-fit: cover;
+          background: #ede9fe;
+        }
+
+        .topup-modal-avatar-placeholder {
+          display: grid;
+          place-items: center;
+          font-size: 30px;
+        }
+
+        .topup-modal-badge {
+          display: block;
+          margin-bottom: 3px;
+          color: #059669;
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: .08em;
+        }
+
+        .topup-modal-header h2 {
+          margin: 0;
+          color: #172033;
+          font-size: 23px;
+          line-height: 1.2;
+        }
+
+        .topup-modal-header p {
+          margin: 5px 0 0;
+          color: #64748b;
+          font-size: 13px;
+        }
+
+        .topup-modal-close {
+          width: 42px;
+          height: 42px;
+          flex: 0 0 42px;
+          border: 0;
+          border-radius: 50%;
+          background: #f1f5f9;
+          color: #475569;
+          font-size: 28px;
+          line-height: 1;
+          cursor: pointer;
+        }
+
+        .topup-modal-close:disabled {
+          opacity: .5;
+          cursor: not-allowed;
+        }
+
+        .topup-modal-balance {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-top: 20px;
+          padding: 16px 18px;
+          border-radius: 18px;
+          background: #ecfdf5;
+          color: #047857;
+        }
+
+        .topup-modal-balance span {
+          font-size: 14px;
+          font-weight: 700;
+        }
+
+        .topup-modal-balance strong {
+          font-size: 24px;
+        }
+
+        .topup-modal-presets {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 8px;
+          margin-top: 16px;
+        }
+
+        .topup-modal-preset {
+          min-height: 44px;
+          border: 1px solid #dbe4ef;
+          border-radius: 13px;
+          background: #f8fafc;
+          color: #334155;
+          font: inherit;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .topup-modal-preset.active {
+          border-color: #10b981;
+          background: #d1fae5;
+          color: #047857;
+        }
+
+        .topup-modal-label {
+          display: block;
+          margin-top: 18px;
+          margin-bottom: 8px;
+          color: #334155;
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+        .topup-modal-amount-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 4px 16px;
+          border: 2px solid #dbeafe;
+          border-radius: 18px;
+          background: #fff;
+        }
+
+        .topup-modal-amount-wrap:focus-within {
+          border-color: #10b981;
+          box-shadow: 0 0 0 4px rgba(16, 185, 129, .12);
+        }
+
+        .topup-modal-amount-wrap > span {
+          color: #059669;
+          font-size: 25px;
+          font-weight: 900;
+        }
+
+        .topup-modal-amount-wrap input {
+          width: 100%;
+          min-width: 0;
+          padding: 10px 0;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: #172033;
+          font: inherit;
+          font-size: 30px;
+          font-weight: 900;
+        }
+
+        .topup-modal-input {
+          width: 100%;
+          margin-top: 10px;
+        }
+
+        .topup-modal-actions {
+          display: grid;
+          grid-template-columns: .8fr 1.2fr;
+          gap: 10px;
+          margin-top: 18px;
+        }
+
+        .topup-modal-actions button {
+          min-height: 54px;
+          border: 0;
+          border-radius: 16px;
+          padding: 12px 16px;
+          font: inherit;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .topup-modal-cancel {
+          background: #f1f5f9;
+          color: #475569;
+        }
+
+        .topup-modal-confirm {
+          background: #059669;
+          color: #fff;
+          box-shadow: 0 10px 24px rgba(5, 150, 105, .22);
+        }
+
+        .topup-modal-actions button:disabled {
+          opacity: .55;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 600px) {
+          .topup-modal-backdrop {
+            align-items: flex-end;
+            padding: 0;
+          }
+
+          .topup-modal-card {
+            width: 100%;
+            max-height: 94vh;
+            border-radius: 28px 28px 0 0;
+            padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+          }
+
+          .topup-modal-presets {
+            grid-template-columns: repeat(3, 1fr);
+          }
+
+          .topup-modal-actions {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </main>
   )
 }
