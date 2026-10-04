@@ -104,6 +104,11 @@ export default function AdminPage() {
   const [topupReference, setTopupReference] = useState('')
   const [topupLoading, setTopupLoading] = useState(false)
   const [topupModalOpen, setTopupModalOpen] = useState(false)
+  const [editTopup, setEditTopup] = useState<WalletTransaction | null>(null)
+  const [editTopupAmount, setEditTopupAmount] = useState('')
+  const [editTopupNote, setEditTopupNote] = useState('')
+  const [editTopupReference, setEditTopupReference] = useState('')
+  const [editTopupLoading, setEditTopupLoading] = useState(false)
 
   const [productName, setProductName] = useState('')
   const [productPrice, setProductPrice] = useState('')
@@ -290,6 +295,67 @@ export default function AdminPage() {
     } catch (error) {
       setMessage(`เติมเงินไม่สำเร็จ: ${error instanceof Error ? error.message : String(error)}`)
     } finally { setTopupLoading(false) }
+  }
+
+  function openEditTopup(transaction: WalletTransaction) {
+    if (transaction.type !== 'topup') return
+    setEditTopup(transaction)
+    setEditTopupAmount(String(Number(transaction.amount)))
+    setEditTopupNote(transaction.note || '')
+    setEditTopupReference(transaction.reference || '')
+  }
+
+  function closeEditTopup() {
+    if (editTopupLoading) return
+    setEditTopup(null)
+  }
+
+  async function saveEditTopup() {
+    if (!supabase || !editTopup) return
+
+    const amount = Number(editTopupAmount)
+    if (!Number.isFinite(amount) || amount < 0) {
+      setMessage('กรุณากรอกจำนวนเงินใหม่ให้ถูกต้อง')
+      return
+    }
+
+    setEditTopupLoading(true)
+    try {
+      const { data, error } = await supabase.rpc('admin_edit_topup', {
+        p_transaction_id: editTopup.id,
+        p_amount: amount,
+        p_reference: editTopupReference.trim() || null,
+        p_note: editTopupNote.trim() || 'แก้ไขรายการเติมเงินโดย Admin',
+      })
+
+      if (error) throw error
+
+      const updatedStudent = data as Student
+
+      setStudents((value) =>
+        value.map((student) =>
+          student.id === updatedStudent.id ? updatedStudent : student,
+        ),
+      )
+
+      if (selected?.id === updatedStudent.id) {
+        setSelected(updatedStudent)
+      }
+
+      setEditTopup(null)
+      setMessage(
+        `แก้ไขรายการเติมเงินเป็น ฿${amount.toFixed(2)} เรียบร้อยแล้ว ยอดเงินนักเรียนถูกปรับตามส่วนต่างแล้ว`,
+      )
+
+      await loadAll()
+      await openHistory(updatedStudent)
+    } catch (error) {
+      setMessage(
+        `แก้ไขรายการเติมเงินไม่สำเร็จ: ${error instanceof Error ? error.message : String(error)}`,
+      )
+    } finally {
+      setEditTopupLoading(false)
+    }
   }
 
   async function openHistory(student: Student) {
@@ -724,6 +790,7 @@ export default function AdminPage() {
                         <th style={{ minWidth: 120, textAlign: 'right' }}>ยอดเงิน</th>
                         <th style={{ minWidth: 160 }}>ยอดคงเหลือ (ก่อน → หลัง)</th>
                         <th style={{ minWidth: 170 }}>หมายเหตุ / อ้างอิง</th>
+                        <th style={{ minWidth: 110 }}>จัดการ</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -806,6 +873,18 @@ export default function AdminPage() {
                                 <span className="history-ref-tag">
                                   Ref: {transaction.reference}
                                 </span>
+                              )}
+                            </td>
+                            <td className="history-action-cell">
+                              {isTopup && (
+                                <button
+                                  type="button"
+                                  className="history-edit-topup-btn"
+                                  onClick={() => openEditTopup(transaction)}
+                                  title="แก้ไขรายการเติมเงิน"
+                                >
+                                  ✏️ แก้ไข
+                                </button>
                               )}
                             </td>
                           </tr>
@@ -1040,6 +1119,107 @@ export default function AdminPage() {
                 {topupLoading
                   ? 'กำลังเติมเงิน...'
                   : `✓ ยืนยันเติม ${topupAmount ? `฿${Number(topupAmount).toFixed(2)}` : 'เงิน'}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Topup Modal */}
+      {editTopup && (
+        <div
+          className="edit-topup-modal-backdrop"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget && !editTopupLoading) {
+              closeEditTopup()
+            }
+          }}
+        >
+          <div className="edit-topup-modal-card" role="dialog" aria-modal="true">
+            <div className="edit-topup-modal-header">
+              <div>
+                <span className="edit-topup-modal-badge">✏️ แก้ไขรายการเติมเงิน</span>
+                <h2>แก้ไขยอดเติมเงินย้อนหลัง</h2>
+                <p>
+                  {selected?.full_name || 'นักเรียน'} · รายการเมื่อ{' '}
+                  {new Date(editTopup.created_at).toLocaleString('th-TH')}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="topup-modal-close"
+                onClick={closeEditTopup}
+                disabled={editTopupLoading}
+                aria-label="ปิด"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="edit-topup-warning">
+              <strong>⚠️ โปรดตรวจสอบจำนวนเงิน</strong>
+              <span>
+                ระบบจะคำนวณยอดคงเหลือใหม่จากรายการนี้และรายการถัดไปโดยอัตโนมัติ
+              </span>
+            </div>
+
+            <label className="topup-modal-label">จำนวนเงินที่ถูกต้อง</label>
+            <div className="topup-modal-amount-wrap">
+              <span>฿</span>
+              <input
+                inputMode="decimal"
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={editTopupAmount}
+                onChange={(event) => setEditTopupAmount(event.target.value)}
+                disabled={editTopupLoading}
+                autoFocus
+              />
+            </div>
+
+            <label className="topup-modal-label">เลขอ้างอิง (ถ้ามี)</label>
+            <input
+              className="input topup-modal-input"
+              placeholder="เช่น เงินสด / ใบเสร็จ / Ref"
+              value={editTopupReference}
+              onChange={(event) => setEditTopupReference(event.target.value)}
+              disabled={editTopupLoading}
+            />
+
+            <label className="topup-modal-label">หมายเหตุ</label>
+            <input
+              className="input topup-modal-input"
+              placeholder="เช่น แก้จาก 100 บาท เป็น 50 บาท"
+              value={editTopupNote}
+              onChange={(event) => setEditTopupNote(event.target.value)}
+              disabled={editTopupLoading}
+            />
+
+            <div className="edit-topup-old-value">
+              <span>ยอดเดิม</span>
+              <strong>฿{Number(editTopup.amount).toFixed(2)}</strong>
+              <span>→</span>
+              <strong>฿{Number(editTopupAmount || 0).toFixed(2)}</strong>
+            </div>
+
+            <div className="topup-modal-actions">
+              <button
+                type="button"
+                className="topup-modal-cancel"
+                onClick={closeEditTopup}
+                disabled={editTopupLoading}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className="topup-modal-confirm"
+                onClick={saveEditTopup}
+                disabled={editTopupLoading || editTopupAmount === '' || Number(editTopupAmount) < 0}
+              >
+                {editTopupLoading ? 'กำลังบันทึก...' : '✓ บันทึกการแก้ไข'}
               </button>
             </div>
           </div>
@@ -1360,6 +1540,115 @@ export default function AdminPage() {
           }
         }
 
+        .history-action-cell {
+          text-align: center;
+          white-space: nowrap;
+        }
+
+        .history-edit-topup-btn {
+          min-height: 36px;
+          padding: 7px 11px;
+          border: 1px solid #bfdbfe;
+          border-radius: 10px;
+          background: #eff6ff;
+          color: #1d4ed8;
+          font: inherit;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+        .history-edit-topup-btn:hover {
+          background: #dbeafe;
+          border-color: #93c5fd;
+        }
+
+        .edit-topup-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1250;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(15, 23, 42, 0.72);
+          backdrop-filter: blur(8px);
+        }
+
+        .edit-topup-modal-card {
+          width: min(100%, 520px);
+          max-height: calc(100vh - 40px);
+          overflow-y: auto;
+          padding: 24px;
+          border: 1px solid #dbeafe;
+          border-radius: 28px;
+          background: #fff;
+          box-shadow: 0 30px 90px rgba(15, 23, 42, 0.3);
+        }
+
+        .edit-topup-modal-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .edit-topup-modal-badge {
+          display: block;
+          margin-bottom: 5px;
+          color: #2563eb;
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: .05em;
+        }
+
+        .edit-topup-modal-header h2 {
+          margin: 0;
+          color: #172033;
+          font-size: 23px;
+        }
+
+        .edit-topup-modal-header p {
+          margin: 6px 0 0;
+          color: #64748b;
+          font-size: 13px;
+        }
+
+        .edit-topup-warning {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          margin-top: 18px;
+          padding: 14px 16px;
+          border: 1px solid #fde68a;
+          border-radius: 16px;
+          background: #fffbeb;
+          color: #92400e;
+          font-size: 13px;
+        }
+
+        .edit-topup-warning strong {
+          font-size: 14px;
+        }
+
+        .edit-topup-old-value {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          margin-top: 16px;
+          padding: 13px;
+          border-radius: 14px;
+          background: #f8fafc;
+          color: #64748b;
+          font-size: 13px;
+        }
+
+        .edit-topup-old-value strong {
+          color: #172033;
+          font-size: 17px;
+        }
+
         .topup-modal-backdrop {
           position: fixed;
           inset: 0;
@@ -1579,6 +1868,18 @@ export default function AdminPage() {
         }
 
         @media (max-width: 600px) {
+          .edit-topup-modal-backdrop {
+            align-items: flex-end;
+            padding: 0;
+          }
+
+          .edit-topup-modal-card {
+            width: 100%;
+            max-height: 94vh;
+            border-radius: 28px 28px 0 0;
+            padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+          }
+
           .topup-modal-backdrop {
             align-items: flex-end;
             padding: 0;

@@ -5,9 +5,9 @@ create table if not exists public.products(id uuid primary key default gen_rando
 create table if not exists public.orders(id uuid primary key default gen_random_uuid(),student_id uuid not null references public.students(id),total numeric(12,2) not null check(total>0),status text not null default 'paid' check(status in('paid','cancelled')),created_at timestamptz not null default now());
 create table if not exists public.order_items(id uuid primary key default gen_random_uuid(),order_id uuid not null references public.orders(id) on delete cascade,product_id uuid references public.products(id),product_name text not null,unit_price numeric(10,2) not null,quantity integer not null check(quantity>0),subtotal numeric(12,2) not null);
 alter table public.order_items alter column product_id drop not null;
-create table if not exists public.wallet_transactions(id uuid primary key default gen_random_uuid(),student_id uuid not null references public.students(id),type text not null check(type in('topup','purchase','refund','adjustment')),amount numeric(12,2) not null check(amount>0),balance_before numeric(12,2) not null,balance_after numeric(12,2) not null,reference text,note text,created_at timestamptz not null default now());
+create table if not exists public.wallet_transactions(id uuid primary key default gen_random_uuid(),student_id uuid not null references public.students(id),type text not null check(type in('topup','purchase','refund','adjustment')),amount numeric(12,2) not null check(amount>=0),balance_before numeric(12,2) not null,balance_after numeric(12,2) not null,reference text,note text,created_at timestamptz not null default now());
 create or replace function public.is_admin() returns boolean language sql stable security definer set search_path=public as $$ select coalesce((auth.jwt()->'app_metadata'->>'role')='admin',false); $$;
-create or replace function public.topup_student(p_student_id uuid,p_amount numeric,p_reference text default null,p_note text default null) returns public.students language plpgsql security definer set search_path=public as $$ declare s public.students; begin if not public.is_admin() then raise exception 'Admin role required'; end if; if p_amount<=0 then raise exception 'Amount must be greater than zero'; end if; update students set balance=balance+p_amount where id=p_student_id and active=true returning * into s; if not found then raise exception 'Student not found or inactive'; end if; insert into wallet_transactions(student_id,type,amount,balance_before,balance_after,reference,note) values(s.id,'topup',p_amount,s.balance-p_amount,s.balance,p_reference,p_note); return s; end; $$;
+create or replace function public.topup_student(p_student_id uuid,p_amount numeric,p_reference text default null,p_note text default null) returns public.students language plpgsql security definer set search_path=public as $$ declare s public.students; begin if not public.is_admin() then raise exception 'Admin role required'; end if; if p_amount<=0 then raise exception 'Amount must be zero or greater'; end if; update students set balance=balance+p_amount where id=p_student_id and active=true returning * into s; if not found then raise exception 'Student not found or inactive'; end if; insert into wallet_transactions(student_id,type,amount,balance_before,balance_after,reference,note) values(s.id,'topup',p_amount,s.balance-p_amount,s.balance,p_reference,p_note); return s; end; $$;
 
 -- ชำระเงินจากจุดขาย: อนุญาตเฉพาะ Admin เท่านั้น
 create or replace function public.purchase_products(p_student_id uuid,p_items jsonb) returns jsonb language plpgsql security definer set search_path=public as $$ declare s public.students; item jsonb; p public.products; qty int; item_name text; item_price numeric; total numeric:=0; new_balance numeric; o public.orders; begin if not public.is_admin() then raise exception 'Admin role required'; end if; select * into s from students where id=p_student_id and active=true for update; if not found then raise exception 'Student not found or inactive'; end if; for item in select * from jsonb_array_elements(p_items) loop qty:=(item->>'quantity')::int; if qty<=0 then raise exception 'Quantity must be greater than zero'; end if; if nullif(item->>'custom_name','') is not null then item_name:=trim(item->>'custom_name'); item_price:=(item->>'custom_price')::numeric; if item_name='' or item_price is null or item_price<0 then raise exception 'Invalid custom item'; end if; else select * into p from products where id=(item->>'product_id')::uuid and active=true for update; if not found then raise exception 'Product not found'; end if; if p.stock<qty then raise exception 'Insufficient stock for %',p.name; end if; item_name:=p.name; item_price:=p.price; end if; total:=total+item_price*qty; end loop; if total<=0 or s.balance<total then raise exception 'Insufficient balance'; end if; new_balance:=s.balance-total; update students set balance=new_balance where id=s.id; insert into orders(student_id,total,status) values(s.id,total,'paid') returning * into o; for item in select * from jsonb_array_elements(p_items) loop qty:=(item->>'quantity')::int; if nullif(item->>'custom_name','') is not null then item_name:=trim(item->>'custom_name'); item_price:=(item->>'custom_price')::numeric; insert into order_items(order_id,product_id,product_name,unit_price,quantity,subtotal) values(o.id,null,item_name,item_price,qty,item_price*qty); else select * into p from products where id=(item->>'product_id')::uuid; item_name:=p.name; item_price:=p.price; update products set stock=stock-qty where id=p.id; insert into order_items(order_id,product_id,product_name,unit_price,quantity,subtotal) values(o.id,p.id,item_name,item_price,qty,item_price*qty); end if; end loop; insert into wallet_transactions(student_id,type,amount,balance_before,balance_after,reference,note) values(s.id,'purchase',total,s.balance,new_balance,o.id::text,'ซื้อสินค้าโรงเรียน'); return jsonb_build_object('order_id',o.id,'balance',new_balance,'total',total); end; $$;
@@ -87,6 +87,114 @@ create policy "student photos public read" on storage.objects for select to publ
 create policy "student photos admin upload" on storage.objects for insert to authenticated with check(bucket_id='student-photos' and public.is_admin());
 create policy "student photos admin update" on storage.objects for update to authenticated using(bucket_id='student-photos' and public.is_admin()) with check(bucket_id='student-photos' and public.is_admin());
 create policy "student photos admin delete" on storage.objects for delete to authenticated using(bucket_id='student-photos' and public.is_admin());
+
+
+-- แก้ไขรายการเติมเงินย้อนหลังสำหรับ Admin
+-- เมื่อแก้ยอด ระบบจะคำนวณ balance_before / balance_after ของรายการถัดไปใหม่ทั้งหมด
+create or replace function public.admin_edit_topup(
+  p_transaction_id uuid,
+  p_amount numeric,
+  p_reference text default null,
+  p_note text default null
+) returns public.students
+language plpgsql
+security definer
+set search_path = public
+as $
+declare
+  tx public.wallet_transactions;
+  s public.students;
+  row_tx public.wallet_transactions;
+  running_balance numeric := 0;
+  delta numeric;
+begin
+  if not public.is_admin() then
+    raise exception 'Admin role required';
+  end if;
+
+  if p_amount is null or p_amount < 0 then
+    raise exception 'Amount must be zero or greater';
+  end if;
+
+  select *
+  into tx
+  from public.wallet_transactions
+  where id = p_transaction_id
+  for update;
+
+  if not found then
+    raise exception 'Transaction not found';
+  end if;
+
+  if tx.type <> 'topup' then
+    raise exception 'Only topup transactions can be edited';
+  end if;
+
+  select *
+  into s
+  from public.students
+  where id = tx.student_id
+  for update;
+
+  if not found then
+    raise exception 'Student not found';
+  end if;
+
+  update public.wallet_transactions
+  set
+    amount = p_amount,
+    reference = p_reference,
+    note = p_note
+  where id = p_transaction_id;
+
+  -- คำนวณยอดคงเหลือใหม่ตามลำดับธุรกรรมจริง
+  for row_tx in
+    select *
+    from public.wallet_transactions
+    where student_id = tx.student_id
+    order by created_at asc, id asc
+  loop
+    if row_tx.type in ('topup', 'refund', 'adjustment') then
+      delta := row_tx.amount;
+    elsif row_tx.type = 'purchase' then
+      delta := -row_tx.amount;
+    else
+      raise exception 'Unsupported transaction type: %', row_tx.type;
+    end if;
+
+    if running_balance + delta < 0 then
+      raise exception 'แก้ไขไม่ได้ เพราะยอดใหม่ทำให้ยอดคงเหลือติดลบหลังรายการ %', row_tx.id;
+    end if;
+
+    update public.wallet_transactions
+    set
+      balance_before = running_balance,
+      balance_after = running_balance + delta
+    where id = row_tx.id;
+
+    running_balance := running_balance + delta;
+  end loop;
+
+  update public.students
+  set balance = running_balance
+  where id = tx.student_id
+  returning * into s;
+
+  return s;
+end;
+$;
+
+revoke execute on function public.admin_edit_topup(uuid,numeric,text,text) from public, anon;
+grant execute on function public.admin_edit_topup(uuid,numeric,text,text) to authenticated;
+
+
+-- อนุญาตให้รายการเติมเงินมีจำนวน 0 ได้ (เช่น แก้รายการเติมเงินผิดจาก 100 -> 0)
+-- ต้องรันส่วนนี้ใน Supabase SQL Editor หากฐานข้อมูลถูกสร้างไปแล้วก่อนหน้านี้
+alter table public.wallet_transactions
+  drop constraint if exists wallet_transactions_amount_check;
+
+alter table public.wallet_transactions
+  add constraint wallet_transactions_amount_check check (amount >= 0);
 
 -- เปิด Supabase Realtime สำหรับข้อมูลหลักของ Shine Wallet
 -- เพื่อให้ทุกหน้าสะท้อนยอดเงิน สินค้า และธุรกรรมที่เปลี่ยนแปลงทันที
