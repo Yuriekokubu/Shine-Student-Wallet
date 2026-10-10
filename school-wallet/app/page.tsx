@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import CartSummary from '../components/wallet/CartSummary'
 import CustomItemForm from '../components/wallet/CustomItemForm'
@@ -25,20 +25,20 @@ export default function HomePage() {
   const [token, setToken] = useState<string | null | undefined>(undefined)
   const [isAdmin, setIsAdmin] = useState(false)
 
-  const reloadWalletData = useCallback(async () => {
-    const productsResult = await getActiveProducts()
-    if (productsResult.error) return
-    setProducts(productsResult.data)
-
-    if (!token) return
-    const studentResult = await getActiveStudentByToken(token)
-    if (!studentResult.error && studentResult.data) {
-      setStudent(studentResult.data)
+  // Refresh only the data affected by a Realtime event to avoid redundant queries.
+  useWalletRealtime((table) => {
+    if (table === 'products') {
+      void getActiveProducts().then((result) => {
+        if (!result.error) setProducts(result.data)
+      })
+      return
     }
-  }, [token])
 
-  useWalletRealtime(() => {
-    void reloadWalletData()
+    if (table === 'students' && token) {
+      void getActiveStudentByToken(token).then((result) => {
+        if (!result.error && result.data) setStudent(result.data)
+      })
+    }
   }, token !== undefined)
 
   useEffect(() => {
@@ -73,11 +73,19 @@ export default function HomePage() {
 
     async function load() {
       setLoading(true)
-      const productsResult = await getActiveProducts()
+
+      // Load independent data in parallel instead of waiting for products before the student lookup.
+      const [productsResult, studentResult] = await Promise.all([
+        getActiveProducts(),
+        token ? getActiveStudentByToken(token) : Promise.resolve(null),
+      ])
       if (cancelled) return
 
-      if (productsResult.error) setMessage(`โหลดสินค้าไม่สำเร็จ: ${productsResult.error.message}`)
-      setProducts(productsResult.data)
+      if (productsResult.error) {
+        setMessage(`โหลดสินค้าไม่สำเร็จ: ${productsResult.error.message}`)
+      } else {
+        setProducts(productsResult.data)
+      }
 
       if (!token) {
         setStudent(null)
@@ -85,8 +93,10 @@ export default function HomePage() {
         return
       }
 
-      const studentResult = await getActiveStudentByToken(token)
-      if (cancelled) return
+      if (!studentResult) {
+        setLoading(false)
+        return
+      }
 
       if (studentResult.error) {
         setMessage(`โหลดข้อมูลนักเรียนไม่สำเร็จ: ${studentResult.error.message}`)
@@ -96,7 +106,7 @@ export default function HomePage() {
         setStudent(null)
       } else {
         setStudent(studentResult.data)
-        setMessage('')
+        if (!productsResult.error) setMessage('')
       }
       setLoading(false)
     }

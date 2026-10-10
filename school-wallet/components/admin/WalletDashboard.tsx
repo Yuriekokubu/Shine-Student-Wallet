@@ -29,6 +29,7 @@ type Props = {
 export default function WalletDashboard({ students, transactions, totalBalance }: Props) {
   const data = useMemo(() => {
     const active = students.filter((student) => student.active)
+    const activeById = new Map(active.map((student) => [student.id, student]))
     const purchases = transactions.filter((transaction) => transaction.type === 'purchase')
     const spending = new Map<string, number>()
     const daily = new Map<string, number>()
@@ -40,12 +41,12 @@ export default function WalletDashboard({ students, transactions, totalBalance }
       const date = new Date(transaction.created_at)
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
       daily.set(key, (daily.get(key) || 0) + amount)
-      const group = active.find((student) => student.id === transaction.student_id)?.class_name || 'ไม่ระบุกลุ่ม'
+      const group = activeById.get(transaction.student_id)?.class_name || 'ไม่ระบุกลุ่ม'
       groups.set(group, (groups.get(group) || 0) + amount)
     }
 
     const top = [...spending.entries()]
-      .map(([id, amount]) => ({ student: active.find((student) => student.id === id), amount }))
+      .map(([id, amount]) => ({ student: activeById.get(id), amount }))
       .filter((item) => item.student)
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5)

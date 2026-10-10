@@ -6,6 +6,7 @@ import QRCode from 'qrcode'
 import { supabase } from '../../lib/supabase'
 import { useWalletRealtime } from '../../lib/use-wallet-realtime'
 import WalletDashboard from '../../components/admin/WalletDashboard'
+import { Activity, GraduationCap, History, LogOut, Package, Pencil, Plus, QrCode, Search, Store, Wallet, X } from 'lucide-react'
 
 type Student = {
   id: string
@@ -57,9 +58,43 @@ export default function AdminPage() {
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<'dashboard' | 'students' | 'products' | 'realtime'>('dashboard')
-  const { connected: realtimeConnected, error: realtimeError } = useWalletRealtime(() => {
-    void loadAll()
-  }, authorized)
+  const { connected: realtimeConnected, error: realtimeError } = useWalletRealtime((table) => {
+    if (!supabase) return
+
+    // Update only the table that changed instead of reloading all admin data.
+    if (table === 'students') {
+      void supabase
+        .from('students')
+        .select('id,student_code,full_name,class_name,balance,qr_token,photo_url,active,created_at')
+        .order('full_name')
+        .then(({ data, error }) => {
+          if (!error) setStudents((data || []) as Student[])
+        })
+      return
+    }
+
+    if (table === 'products') {
+      void supabase
+        .from('products')
+        .select('id,name,price,stock,image_url,active,created_at')
+        .order('name')
+        .then(({ data, error }) => {
+          if (!error) setProducts((data || []) as Product[])
+        })
+      return
+    }
+
+    if (table === 'wallet_transactions') {
+      void supabase
+        .from('wallet_transactions')
+        .select('id,student_id,type,amount,balance_before,balance_after,reference,note,created_at')
+        .order('created_at', { ascending: false })
+        .limit(200)
+        .then(({ data, error }) => {
+          if (!error) setTransactions((data || []) as WalletTransaction[])
+        })
+    }
+  }, authorized, true)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [qr, setQr] = useState('')
 
@@ -178,15 +213,32 @@ export default function AdminPage() {
     setLoading(false)
   }
 
+  // Prepare the active student list once so the students tab and top-up picker
+  // don't repeatedly filter and sort the full dataset during renders.
+  const activeStudents = useMemo(
+    () => students.filter((student) => student.active),
+    [students],
+  )
+
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()
-    return students
+    return activeStudents
       .filter((student) => !query || student.full_name.toLowerCase().includes(query) || student.student_code.toLowerCase().includes(query) || String(student.class_name || '').toLowerCase().includes(query))
       .sort((a, b) => {
         const groupOrder = (group: string | null) => group === 'เด็กโต' ? 0 : group === 'เด็กเล็ก' ? 1 : 2
         return groupOrder(a.class_name) - groupOrder(b.class_name) || a.full_name.localeCompare(b.full_name, 'th')
       })
-  }, [students, search])
+  }, [activeStudents, search])
+
+  const topupPickerStudents = useMemo(() => {
+    const query = topupStudentSearch.trim().toLowerCase()
+    return activeStudents.filter((student) =>
+      !query ||
+      student.full_name.toLowerCase().includes(query) ||
+      student.student_code.toLowerCase().includes(query) ||
+      String(student.class_name || '').toLowerCase().includes(query),
+    )
+  }, [activeStudents, topupStudentSearch])
 
   const totalBalance = useMemo(() => students.filter((student) => student.active).reduce((total, student) => total + Number(student.balance), 0), [students])
   const totalTopup = useMemo(() => transactions.filter((transaction) => transaction.type === 'topup').reduce((total, transaction) => total + Number(transaction.amount), 0), [transactions])
@@ -416,6 +468,15 @@ export default function AdminPage() {
     setHistoryPage(1)
     setHistoryLoading(true)
 
+    // Scroll to the history panel as soon as it is rendered, without waiting
+    // for the transaction query to finish.
+    window.setTimeout(() => {
+      document.querySelector('.history-panel')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    }, 0)
+
     try {
       const { data, error } = await supabase
         .from('wallet_transactions')
@@ -528,10 +589,10 @@ export default function AdminPage() {
   return (
     <main className="shell">
       <div className="topbar admin-topbar">
-        <div><div className="brand">⚙️ School Wallet Admin</div><div className="muted">จัดการนักเรียน · เงิน · สินค้า · ประวัติธุรกรรม</div></div>
+        <div><div className="brand"><span className="admin-brand-icon"><Wallet size={22} strokeWidth={2.4} /></span><span>Shine Wallet <span className="admin-brand-light">Admin</span></span></div><div className="muted">จัดการนักเรียน · เงิน · สินค้า · ประวัติธุรกรรม</div></div>
         <div className="admin-actions">
-          <Link href="/kiosk" className="btn admin-kiosk-top-btn">🏪 จุดขาย</Link>
-          <button className="btn dark" onClick={requestLogout}>ออกจากระบบ</button>
+          <Link href="/kiosk" className="btn admin-kiosk-top-btn"><Store size={17} /> จุดขาย</Link>
+          <button className="btn dark admin-logout-btn" onClick={requestLogout}><LogOut size={17} /> ออกจากระบบ</button>
         </div>
       </div>
 
@@ -554,16 +615,16 @@ export default function AdminPage() {
       {message && <div className="status" style={{ marginBottom: 16 }}>{message}</div>}
 
       <div className="grid admin-stats">
-        <div className="card"><div className="stat-icon blue">👨‍🎓</div><div><div className="muted">นักเรียน</div><div className="stat-number">{students.filter((student) => student.active).length}</div><div className="muted">คน</div></div></div>
-        <div className="card"><div className="stat-icon green">฿</div><div><div className="muted">ยอดเงินคงเหลือรวม</div><div className="stat-number">฿{totalBalance.toFixed(2)}</div></div></div>
-        <div className="card"><div className="stat-icon purple">↔</div><div><div className="muted">ธุรกรรม</div><div className="stat-number">{transactions.length}</div><div className="muted">เติม ฿{totalTopup.toFixed(2)} · ซื้อ ฿{totalPurchase.toFixed(2)}</div></div></div>
+        <div className="card"><div className="stat-icon blue"><GraduationCap size={25} strokeWidth={2.2} /></div><div><div className="muted">นักเรียน</div><div className="stat-number">{students.filter((student) => student.active).length}</div><div className="muted">คน</div></div></div>
+        <div className="card"><div className="stat-icon green"><Wallet size={24} strokeWidth={2.2} /></div><div><div className="muted">ยอดเงินคงเหลือรวม</div><div className="stat-number">฿{totalBalance.toFixed(2)}</div></div></div>
+        <div className="card"><div className="stat-icon purple"><Activity size={24} strokeWidth={2.2} /></div><div><div className="muted">ธุรกรรม</div><div className="stat-number">{transactions.length}</div><div className="muted">เติม ฿{totalTopup.toFixed(2)} · ซื้อ ฿{totalPurchase.toFixed(2)}</div></div></div>
       </div>
 
       <div className="admin-tabs">
-        <button className={`admin-tab ${tab === 'dashboard' ? 'active' : ''}`} onClick={() => setTab('dashboard')}><span>📊</span><b>Dashboard</b><small>ภาพรวมและพฤติกรรมการใช้เงิน</small></button>
-        <button className={`admin-tab ${tab === 'students' ? 'active' : ''}`} onClick={() => setTab('students')}><span>👨‍🎓</span><b>นักเรียน</b><small>จัดการนักเรียนและเติมเงิน</small></button>
-        <button className={`admin-tab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}><span>🛍️</span><b>สินค้า</b><small>จัดการสินค้าและสต็อก</small></button>
-        <button className={`admin-tab ${tab === 'realtime' ? 'active' : ''}`} onClick={() => setTab('realtime')}><span>🔴</span><b>ธุรกรรมเรียลไทม์</b><small>ดูรายการที่เกิดขึ้นทันที</small></button>
+        <button className={`admin-tab ${tab === 'dashboard' ? 'active' : ''}`} onClick={() => setTab('dashboard')}><span><Activity size={22} /></span><b>ภาพรวม</b><small>Dashboard &amp; สรุปข้อมูล</small></button>
+        <button className={`admin-tab ${tab === 'students' ? 'active' : ''}`} onClick={() => setTab('students')}><span><GraduationCap size={22} /></span><b>นักเรียน</b><small>ข้อมูลและกระเป๋าเงิน</small></button>
+        <button className={`admin-tab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}><span><Package size={22} /></span><b>สินค้า</b><small>สินค้าและสต็อก</small></button>
+        <button className={`admin-tab ${tab === 'realtime' ? 'active' : ''}`} onClick={() => setTab('realtime')}><span><Activity size={22} /></span><b>ธุรกรรมสด</b><small>ติดตามรายการล่าสุด</small></button>
       </div>
 
       {tab === 'dashboard' ? (
@@ -684,20 +745,20 @@ export default function AdminPage() {
             <div className="row admin-add-row">
               <input className="input" placeholder="ชื่อ-นามสกุล" value={newName} onChange={(event) => setNewName(event.target.value)} />
               <select className="input student-group-select" value={newGroup} onChange={(event) => setNewGroup(event.target.value)} aria-label="กลุ่มนักเรียน"><option value="เด็กเล็ก">เด็กเล็ก</option><option value="เด็กโต">เด็กโต</option></select>
-              <label className="btn upload-btn">📷 เพิ่มรูป<input type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0] || null; setNewPhoto(file); setPhotoPreview(file ? URL.createObjectURL(file) : '') }} /></label>
-              <button className="btn primary" onClick={addStudent} disabled={loading}>＋ เพิ่มนักเรียน</button>
+              <label className="btn upload-btn"><Plus size={16} /> เพิ่มรูป<input type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0] || null; setNewPhoto(file); setPhotoPreview(file ? URL.createObjectURL(file) : '') }} /></label>
+              <button className="btn primary" onClick={addStudent} disabled={loading}><Plus size={17} /> เพิ่มนักเรียน</button>
             </div>
             {photoPreview && <img src={photoPreview} alt="preview" className="admin-preview" />}
           </div>
 
           <div className="card admin-section">
-            <div className="section-heading"><div><h2>รายชื่อนักเรียน</h2><p className="muted">เลือกนักเรียนเพื่อเติมเงิน ดูประวัติ หรือแสดง QR</p></div><input className="input admin-search" placeholder="🔎 ค้นหาชื่อ / รหัส / ชั้น" value={search} onChange={(event) => setSearch(event.target.value)} /></div>
+            <div className="section-heading"><div><h2>รายชื่อนักเรียน</h2><p className="muted">เลือกนักเรียนเพื่อเติมเงิน ดูประวัติ หรือแสดง QR</p></div><div className="admin-search-wrap"><Search size={17} /><input className="input admin-search" placeholder="ค้นหาชื่อ / รหัส / ชั้น" value={search} onChange={(event) => setSearch(event.target.value)} /></div></div>
             <div className="student-list">
-              {filtered.filter((student) => student.active).map((student) => (
+              {filtered.map((student) => (
                 <div className="student-row" key={student.id}>
                   <div className="student-main"><Link href={`/?student=${encodeURIComponent(student.qr_token)}`} className="student-avatar-link" aria-label={`ไปหน้าซื้อสินค้าสำหรับ ${student.full_name}`} title="คลิกรูปเพื่อไปหน้าซื้อสินค้า">{student.photo_url ? <img src={student.photo_url} alt={`รูปนักเรียน ${student.full_name}`} className="student-avatar" loading="lazy" decoding="async" /> : <div className="student-avatar-placeholder student-avatar">👤</div>}</Link><div className="student-main-info"><b>{student.full_name}</b><div className="student-meta"><span className="muted">{student.student_code}</span><span className={`student-group-badge ${student.class_name === 'เด็กโต' ? 'group-older' : student.class_name === 'เด็กเล็ก' ? 'group-younger' : 'group-unknown'}`}>{student.class_name || 'ไม่ระบุกลุ่ม'}</span></div></div></div>
                   <div className={`student-balance ${Number(student.balance) !== 0 ? 'has-balance' : ''}`}>฿{Number(student.balance).toFixed(2)}</div>
-                  <div className="student-actions"><button className="btn primary" onClick={() => openTopupModal(student)}>＋ เติมเงิน</button><button className="btn history-open-btn" onClick={() => openHistory(student)}>📜 ประวัติ</button><button className="btn" onClick={() => showQr(student)}>▦ QR</button><button className="btn" onClick={() => openEdit(student)}>✎ แก้ไข</button><button className="btn danger-btn" onClick={() => requestDeleteStudent(student)}>ปิดใช้งาน</button></div>
+                  <div className="student-actions"><button className="btn primary" onClick={() => openTopupModal(student)}>＋ เติมเงิน</button><button className="btn history-open-btn" onClick={() => openHistory(student)}><History size={15} /> ประวัติ</button><button className="btn" onClick={() => showQr(student)}><QrCode size={15} /> QR</button><button className="btn" onClick={() => openEdit(student)}><Pencil size={15} /> แก้ไข</button><button className="btn danger-btn" onClick={() => requestDeleteStudent(student)}>ปิดใช้งาน</button></div>
                 </div>
               ))}
             </div>
@@ -707,7 +768,7 @@ export default function AdminPage() {
         <div className="card admin-section">
           <div className="section-heading"><div><h2>จัดการสินค้า</h2><p className="muted">เพิ่ม แก้ไขราคา สต็อก และปิดการขาย</p></div><button className="btn primary" onClick={() => { setProductEdit(null); setProductName(''); setProductPrice(''); setProductStock('') }}>＋ สินค้าใหม่</button></div>
           <div className="product-form"><input className="input" placeholder="ชื่อสินค้า" value={productName} onChange={(event) => setProductName(event.target.value)} /><input className="input" type="number" min="0" step="0.01" placeholder="ราคา" value={productPrice} onChange={(event) => setProductPrice(event.target.value)} /><input className="input" type="number" min="0" step="1" placeholder="Stock" value={productStock} onChange={(event) => setProductStock(event.target.value)} /><label className="btn upload-btn">📷 รูปสินค้า<input type="file" accept="image/*" hidden onChange={(event) => setProductImage(event.target.files?.[0] || null)} /></label><button className="btn primary" onClick={saveProduct}>{productEdit ? 'บันทึกแก้ไข' : 'เพิ่มสินค้า'}</button></div>
-          <div className="products admin-products">{products.filter((product) => product.active).map((product) => <div className="product admin-product" key={product.id}>{product.image_url ? <img src={product.image_url} alt="" className="product-thumb" /> : <div className="product-thumb-placeholder">🛍️</div>}<div className="product-info"><b>{product.name}</b><div className="muted">฿{Number(product.price).toFixed(2)} · เหลือ {product.stock} ชิ้น</div></div><div className="row"><button className="btn" onClick={() => editProduct(product)}>✎ แก้ไข</button><button className="btn danger-btn" onClick={() => requestDeleteProduct(product)}>ปิดการขาย</button></div></div>)}</div>
+          <div className="products admin-products">{products.filter((product) => product.active).map((product) => <div className="product admin-product" key={product.id}>{product.image_url ? <img src={product.image_url} alt="" className="product-thumb" /> : <div className="product-thumb-placeholder"><Package size={24} /></div>}<div className="product-info"><b>{product.name}</b><div className="muted">฿{Number(product.price).toFixed(2)} · เหลือ {product.stock} ชิ้น</div></div><div className="row"><button className="btn" onClick={() => editProduct(product)}><Pencil size={15} /> แก้ไข</button><button className="btn danger-btn" onClick={() => requestDeleteProduct(product)}>ปิดการขาย</button></div></div>)}</div>
         </div>
       )}
 
@@ -754,7 +815,7 @@ export default function AdminPage() {
             </div>
 
             <div className="history-presets">
-              {[20, 50, 100, 200, 500].map((preset) => (
+              {[10, 15, 20, 30, 40].map((preset) => (
                 <button
                   type="button"
                   key={preset}
@@ -1084,10 +1145,7 @@ export default function AdminPage() {
             </div>
             <input className="input topup-picker-search" type="search" placeholder="🔎 ค้นหาชื่อ / รหัส / ชั้น" value={topupStudentSearch} onChange={(event) => setTopupStudentSearch(event.target.value)} autoFocus />
             <div className="topup-picker-list">
-              {students.filter((student) => student.active).filter((student) => {
-                const query = topupStudentSearch.trim().toLowerCase()
-                return !query || student.full_name.toLowerCase().includes(query) || student.student_code.toLowerCase().includes(query) || String(student.class_name || '').toLowerCase().includes(query)
-              }).map((student) => (
+              {topupPickerStudents.map((student) => (
                 <button key={student.id} type="button" className="topup-picker-student" onClick={() => {
                   setTopupStudentPickerOpen(false)
                   openTopupModal(student)
@@ -1101,10 +1159,7 @@ export default function AdminPage() {
                   <span className="topup-picker-arrow">›</span>
                 </button>
               ))}
-              {students.filter((student) => student.active).filter((student) => {
-                const query = topupStudentSearch.trim().toLowerCase()
-                return !query || student.full_name.toLowerCase().includes(query) || student.student_code.toLowerCase().includes(query) || String(student.class_name || '').toLowerCase().includes(query)
-              }).length === 0 && <div className="topup-picker-empty">{students.some((student) => student.active) ? 'ไม่พบนักเรียนที่ตรงกับคำค้นหา' : 'ยังไม่มีนักเรียนที่เปิดใช้งาน'}</div>}
+              {topupPickerStudents.length === 0 && <div className="topup-picker-empty">{students.some((student) => student.active) ? 'ไม่พบนักเรียนที่ตรงกับคำค้นหา' : 'ยังไม่มีนักเรียนที่เปิดใช้งาน'}</div>}
             </div>
           </div>
         </div>
@@ -1150,7 +1205,7 @@ export default function AdminPage() {
             </div>
 
             <div className="topup-modal-presets">
-              {[20, 50, 100, 200, 500].map((preset) => (
+              {[10, 15, 20, 30, 40].map((preset) => (
                 <button
                   type="button"
                   key={preset}
@@ -1711,6 +1766,10 @@ export default function AdminPage() {
           .realtime-amount {
             margin-left: auto;
           }
+        }
+
+        .history-panel {
+          scroll-margin-top: 20px;
         }
 
         .history-action-cell {

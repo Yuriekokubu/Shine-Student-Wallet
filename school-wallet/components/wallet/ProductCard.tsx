@@ -26,6 +26,8 @@ export default function ProductCard({
             src={product.image_url}
             alt={product.name}
             className="product-card-image"
+            loading="lazy"
+            decoding="async"
           />
         ) : (
           <div className="product-card-placeholder" aria-hidden="true">
