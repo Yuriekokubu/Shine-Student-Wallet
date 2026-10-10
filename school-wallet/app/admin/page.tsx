@@ -5,6 +5,7 @@ import Link from 'next/link'
 import QRCode from 'qrcode'
 import { supabase } from '../../lib/supabase'
 import { useWalletRealtime } from '../../lib/use-wallet-realtime'
+import WalletDashboard from '../../components/admin/WalletDashboard'
 
 type Student = {
   id: string
@@ -55,7 +56,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'students' | 'products' | 'realtime'>('students')
+  const [tab, setTab] = useState<'dashboard' | 'students' | 'products' | 'realtime'>('dashboard')
   const { connected: realtimeConnected, error: realtimeError } = useWalletRealtime(() => {
     void loadAll()
   }, authorized)
@@ -86,15 +87,13 @@ export default function AdminPage() {
   }, [realtimePage, totalRealtimePages])
 
   const [newName, setNewName] = useState('')
-  const [newCode, setNewCode] = useState('')
-  const [newClass, setNewClass] = useState('')
+  const [newGroup, setNewGroup] = useState('เด็กเล็ก')
   const [newPhoto, setNewPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState('')
 
   const [edit, setEdit] = useState<Student | null>(null)
   const [editName, setEditName] = useState('')
-  const [editCode, setEditCode] = useState('')
-  const [editClass, setEditClass] = useState('')
+  const [editGroup, setEditGroup] = useState('เด็กเล็ก')
   const [editPhoto, setEditPhoto] = useState<File | null>(null)
   const [editPhotoPreview, setEditPhotoPreview] = useState('')
   const [removePhoto, setRemovePhoto] = useState(false)
@@ -104,6 +103,8 @@ export default function AdminPage() {
   const [topupReference, setTopupReference] = useState('')
   const [topupLoading, setTopupLoading] = useState(false)
   const [topupModalOpen, setTopupModalOpen] = useState(false)
+  const [topupStudentPickerOpen, setTopupStudentPickerOpen] = useState(false)
+  const [topupStudentSearch, setTopupStudentSearch] = useState('')
   const [editTopup, setEditTopup] = useState<WalletTransaction | null>(null)
   const [editTopupAmount, setEditTopupAmount] = useState('')
   const [editTopupNote, setEditTopupNote] = useState('')
@@ -179,28 +180,75 @@ export default function AdminPage() {
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase()
-    return students.filter((student) => !query || student.full_name.toLowerCase().includes(query) || student.student_code.toLowerCase().includes(query) || String(student.class_name || '').toLowerCase().includes(query))
+    return students
+      .filter((student) => !query || student.full_name.toLowerCase().includes(query) || student.student_code.toLowerCase().includes(query) || String(student.class_name || '').toLowerCase().includes(query))
+      .sort((a, b) => {
+        const groupOrder = (group: string | null) => group === 'เด็กโต' ? 0 : group === 'เด็กเล็ก' ? 1 : 2
+        return groupOrder(a.class_name) - groupOrder(b.class_name) || a.full_name.localeCompare(b.full_name, 'th')
+      })
   }, [students, search])
 
   const totalBalance = useMemo(() => students.filter((student) => student.active).reduce((total, student) => total + Number(student.balance), 0), [students])
   const totalTopup = useMemo(() => transactions.filter((transaction) => transaction.type === 'topup').reduce((total, transaction) => total + Number(transaction.amount), 0), [transactions])
   const totalPurchase = useMemo(() => transactions.filter((transaction) => transaction.type === 'purchase').reduce((total, transaction) => total + Number(transaction.amount), 0), [transactions])
 
+  async function compressStudentPhoto(file: File): Promise<File> {
+    if (!file.type.startsWith('image/')) return file
+
+    try {
+      const imageUrl = URL.createObjectURL(file)
+      try {
+        const image = new Image()
+        image.src = imageUrl
+        await image.decode()
+
+        const maxDimension = 720
+        const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale))
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale))
+
+        const context = canvas.getContext('2d')
+        if (!context) return file
+        context.drawImage(image, 0, 0, canvas.width, canvas.height)
+
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', 0.82))
+        if (!blob || blob.size >= file.size) return file
+        return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.webp', {
+          type: 'image/webp',
+          lastModified: Date.now(),
+        })
+      } finally {
+        URL.revokeObjectURL(imageUrl)
+      }
+    } catch {
+      // ถ้าเบราว์เซอร์แปลงรูปไม่ได้ ให้อัปโหลดไฟล์ต้นฉบับแทน
+      return file
+    }
+  }
+
   async function uploadPhoto(file: File, studentId: string) {
     if (!supabase) return null
-    const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const optimizedFile = await compressStudentPhoto(file)
+    const isWebp = optimizedFile.type === 'image/webp'
+    const extension = isWebp ? 'webp' : optimizedFile.name.split('.').pop()?.toLowerCase() || 'jpg'
     const path = `${studentId}-${Date.now()}.${extension}`
-    const { error } = await supabase.storage.from('student-photos').upload(path, file, { upsert: true })
+    const { error } = await supabase.storage.from('student-photos').upload(path, optimizedFile, {
+      upsert: true,
+      contentType: optimizedFile.type || undefined,
+      cacheControl: '31536000',
+    })
     if (error) throw error
     return supabase.storage.from('student-photos').getPublicUrl(path).data.publicUrl
   }
 
   async function addStudent() {
     if (!supabase) return
-    if (!newName.trim() || !newCode.trim()) return setMessage('กรุณากรอกชื่อและรหัสนักเรียน')
+    if (!newName.trim()) return setMessage('กรุณากรอกชื่อ-นามสกุลนักเรียน')
     setLoading(true)
     try {
-      const { data, error } = await supabase.from('students').insert({ full_name: newName.trim(), student_code: newCode.trim(), class_name: newClass.trim() || null }).select().single()
+      // student_code จะถูกสร้างอัตโนมัติจาก Supabase เป็น sh0001, sh0002, ...
+      const { data, error } = await supabase.from('students').insert({ full_name: newName.trim(), class_name: newGroup }).select().single()
       if (error) throw error
       let row = data as Student
       if (newPhoto) {
@@ -210,7 +258,7 @@ export default function AdminPage() {
         row = updated as Student
       }
       setStudents((value) => [...value, row].sort((a, b) => a.full_name.localeCompare(b.full_name)))
-      setNewName(''); setNewCode(''); setNewClass(''); setNewPhoto(null); setPhotoPreview('')
+      setNewName(''); setNewGroup('เด็กเล็ก'); setNewPhoto(null); setPhotoPreview('')
       setMessage('เพิ่มนักเรียนเรียบร้อยแล้ว')
     } catch (error) {
       setMessage(`เพิ่มนักเรียนไม่สำเร็จ: ${error instanceof Error ? error.message : String(error)}`)
@@ -218,18 +266,18 @@ export default function AdminPage() {
   }
 
   function openEdit(student: Student) {
-    setEdit(student); setEditName(student.full_name); setEditCode(student.student_code); setEditClass(student.class_name || ''); setEditPhoto(null); setEditPhotoPreview(student.photo_url || ''); setRemovePhoto(false)
+    setEdit(student); setEditName(student.full_name); setEditGroup(student.class_name === 'เด็กโต' ? 'เด็กโต' : 'เด็กเล็ก'); setEditPhoto(null); setEditPhotoPreview(student.photo_url || ''); setRemovePhoto(false)
   }
 
   async function saveEdit() {
     if (!supabase || !edit) return
-    if (!editName.trim() || !editCode.trim()) return setMessage('กรุณากรอกชื่อและรหัสนักเรียน')
+    if (!editName.trim()) return setMessage('กรุณากรอกชื่อ-นามสกุลนักเรียน')
     setLoading(true)
     try {
       let photoUrl = edit.photo_url
       if (removePhoto) photoUrl = null
       if (editPhoto) photoUrl = await uploadPhoto(editPhoto, edit.id)
-      const { data, error } = await supabase.from('students').update({ full_name: editName.trim(), student_code: editCode.trim(), class_name: editClass.trim() || null, photo_url: photoUrl }).eq('id', edit.id).select().single()
+      const { data, error } = await supabase.from('students').update({ full_name: editName.trim(), class_name: editGroup, photo_url: photoUrl }).eq('id', edit.id).select().single()
       if (error) throw error
       const updated = data as Student
       setStudents((value) => value.map((student) => student.id === edit.id ? updated : student))
@@ -279,6 +327,8 @@ export default function AdminPage() {
   function closeTopupModal() {
     if (topupLoading) return
     setTopupModalOpen(false)
+    setTopupStudentSearch('')
+    setTopupStudentPickerOpen(true)
   }
 
   async function topup() {
@@ -510,12 +560,15 @@ export default function AdminPage() {
       </div>
 
       <div className="admin-tabs">
+        <button className={`admin-tab ${tab === 'dashboard' ? 'active' : ''}`} onClick={() => setTab('dashboard')}><span>📊</span><b>Dashboard</b><small>ภาพรวมและพฤติกรรมการใช้เงิน</small></button>
         <button className={`admin-tab ${tab === 'students' ? 'active' : ''}`} onClick={() => setTab('students')}><span>👨‍🎓</span><b>นักเรียน</b><small>จัดการนักเรียนและเติมเงิน</small></button>
         <button className={`admin-tab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}><span>🛍️</span><b>สินค้า</b><small>จัดการสินค้าและสต็อก</small></button>
         <button className={`admin-tab ${tab === 'realtime' ? 'active' : ''}`} onClick={() => setTab('realtime')}><span>🔴</span><b>ธุรกรรมเรียลไทม์</b><small>ดูรายการที่เกิดขึ้นทันที</small></button>
       </div>
 
-      {tab === 'realtime' ? (
+      {tab === 'dashboard' ? (
+        <WalletDashboard students={students} transactions={transactions} totalBalance={totalBalance} />
+      ) : tab === 'realtime' ? (
         <div className="card admin-section realtime-transactions-panel">
           <div className="section-heading">
             <div>
@@ -630,8 +683,7 @@ export default function AdminPage() {
             <div className="section-heading"><div><h2>เพิ่มนักเรียน</h2><p className="muted">สร้างบัญชีนักเรียนพร้อมรูปและ QR Code</p></div></div>
             <div className="row admin-add-row">
               <input className="input" placeholder="ชื่อ-นามสกุล" value={newName} onChange={(event) => setNewName(event.target.value)} />
-              <input className="input" placeholder="รหัสนักเรียน" value={newCode} onChange={(event) => setNewCode(event.target.value)} />
-              <input className="input" placeholder="ชั้นเรียน" value={newClass} onChange={(event) => setNewClass(event.target.value)} />
+              <select className="input student-group-select" value={newGroup} onChange={(event) => setNewGroup(event.target.value)} aria-label="กลุ่มนักเรียน"><option value="เด็กเล็ก">เด็กเล็ก</option><option value="เด็กโต">เด็กโต</option></select>
               <label className="btn upload-btn">📷 เพิ่มรูป<input type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0] || null; setNewPhoto(file); setPhotoPreview(file ? URL.createObjectURL(file) : '') }} /></label>
               <button className="btn primary" onClick={addStudent} disabled={loading}>＋ เพิ่มนักเรียน</button>
             </div>
@@ -643,7 +695,7 @@ export default function AdminPage() {
             <div className="student-list">
               {filtered.filter((student) => student.active).map((student) => (
                 <div className="student-row" key={student.id}>
-                  <div className="student-main"><Link href={`/?student=${encodeURIComponent(student.qr_token)}`} className="student-avatar-link" aria-label={`ไปหน้าซื้อสินค้าสำหรับ ${student.full_name}`} title="คลิกรูปเพื่อไปหน้าซื้อสินค้า">{student.photo_url ? <img src={student.photo_url} alt={`รูปนักเรียน ${student.full_name}`} className="student-avatar" /> : <div className="student-avatar-placeholder student-avatar">👤</div>}</Link><div><b>{student.full_name}</b><div className="muted">{student.student_code} · {student.class_name || 'ไม่ระบุชั้น'}</div></div></div>
+                  <div className="student-main"><Link href={`/?student=${encodeURIComponent(student.qr_token)}`} className="student-avatar-link" aria-label={`ไปหน้าซื้อสินค้าสำหรับ ${student.full_name}`} title="คลิกรูปเพื่อไปหน้าซื้อสินค้า">{student.photo_url ? <img src={student.photo_url} alt={`รูปนักเรียน ${student.full_name}`} className="student-avatar" loading="lazy" decoding="async" /> : <div className="student-avatar-placeholder student-avatar">👤</div>}</Link><div className="student-main-info"><b>{student.full_name}</b><div className="student-meta"><span className="muted">{student.student_code}</span><span className={`student-group-badge ${student.class_name === 'เด็กโต' ? 'group-older' : student.class_name === 'เด็กเล็ก' ? 'group-younger' : 'group-unknown'}`}>{student.class_name || 'ไม่ระบุกลุ่ม'}</span></div></div></div>
                   <div className={`student-balance ${Number(student.balance) !== 0 ? 'has-balance' : ''}`}>฿{Number(student.balance).toFixed(2)}</div>
                   <div className="student-actions"><button className="btn primary" onClick={() => openTopupModal(student)}>＋ เติมเงิน</button><button className="btn history-open-btn" onClick={() => openHistory(student)}>📜 ประวัติ</button><button className="btn" onClick={() => showQr(student)}>▦ QR</button><button className="btn" onClick={() => openEdit(student)}>✎ แก้ไข</button><button className="btn danger-btn" onClick={() => requestDeleteStudent(student)}>ปิดใช้งาน</button></div>
                 </div>
@@ -665,7 +717,7 @@ export default function AdminPage() {
           <div className="history-header">
             <div className="history-student-info">
               {selected.photo_url ? (
-                <img src={selected.photo_url} alt="" className="history-avatar" />
+                <img src={selected.photo_url} alt="" className="history-avatar" loading="lazy" decoding="async" />
               ) : (
                 <div className="history-avatar history-avatar-placeholder">👤</div>
               )}
@@ -976,7 +1028,7 @@ export default function AdminPage() {
 
       {qr && <div className="card qr-panel"><h2>▦ QR นักเรียน</h2><img src={qr} alt="Student QR" /><button className="btn" onClick={() => setQr('')}>ปิด QR</button></div>}
 
-      {edit && <div className="card admin-section"><div className="section-heading"><h2>✎ แก้ไขนักเรียน</h2><button className="btn" onClick={() => setEdit(null)}>ยกเลิก</button></div><div className="row admin-edit-row"><input className="input" value={editName} onChange={(event) => setEditName(event.target.value)} placeholder="ชื่อ" /><input className="input" value={editCode} onChange={(event) => setEditCode(event.target.value)} placeholder="รหัส" /><input className="input" value={editClass} onChange={(event) => setEditClass(event.target.value)} placeholder="ชั้น" /><label className="btn upload-btn">📷 เปลี่ยนรูป<input type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0] || null; setEditPhoto(file); setEditPhotoPreview(file ? URL.createObjectURL(file) : edit.photo_url || '') }} /></label><button className="btn" onClick={() => { setRemovePhoto(true); setEditPhoto(null); setEditPhotoPreview('') }}>ลบรูป</button><button className="btn primary" onClick={saveEdit}>บันทึก</button></div>{editPhotoPreview && <img src={editPhotoPreview} alt="preview" className="admin-preview" />}</div>}
+      {edit && <div className="card admin-section"><div className="section-heading"><h2>✎ แก้ไขนักเรียน</h2><button className="btn" onClick={() => setEdit(null)}>ยกเลิก</button></div><div className="row admin-edit-row"><input className="input" value={editName} onChange={(event) => setEditName(event.target.value)} placeholder="ชื่อ" /><input className="input" value={edit.student_code} placeholder="รหัสอัตโนมัติ" readOnly /><select className="input student-group-select" value={editGroup} onChange={(event) => setEditGroup(event.target.value)} aria-label="กลุ่มนักเรียน"><option value="เด็กเล็ก">เด็กเล็ก</option><option value="เด็กโต">เด็กโต</option></select><label className="btn upload-btn">📷 เปลี่ยนรูป<input type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0] || null; setEditPhoto(file); setEditPhotoPreview(file ? URL.createObjectURL(file) : edit.photo_url || '') }} /></label><button className="btn" onClick={() => { setRemovePhoto(true); setEditPhoto(null); setEditPhotoPreview('') }}>ลบรูป</button><button className="btn primary" onClick={saveEdit}>บันทึก</button></div>{editPhotoPreview && <img src={editPhotoPreview} alt="preview" className="admin-preview" />}</div>}
 
       {/* Mobile Rich Menu (Bottom Navigation) */}
       <nav className="admin-mobile-menu" aria-label="Admin Mobile Navigation">
@@ -1004,16 +1056,59 @@ export default function AdminPage() {
           className="admin-menu-item"
           onClick={() => {
             setTab('students')
-            if (students[0]) openTopupModal(students[0])
+            setTopupStudentSearch('')
+            setTopupStudentPickerOpen(true)
             window.scrollTo({ top: 0, behavior: 'smooth' })
           }}
         >
           <span className="admin-menu-icon">💰</span>
           <b className="admin-menu-label">เติมเงิน</b>
-          <small className="admin-menu-sub">ด่วน</small>
+          <small className="admin-menu-sub">เลือกนักเรียน</small>
         </button>
 
       </nav>
+
+      {/* Student Picker for Rich Menu Top Up */}
+      {topupStudentPickerOpen && (
+        <div className="topup-picker-backdrop" role="presentation" onClick={(event) => {
+          if (event.target === event.currentTarget) setTopupStudentPickerOpen(false)
+        }}>
+          <div className="topup-picker-card" role="dialog" aria-modal="true" aria-labelledby="topup-picker-title">
+            <div className="topup-picker-header">
+              <div>
+                <span className="topup-modal-badge">SHINE WALLET</span>
+                <h2 id="topup-picker-title">เลือกนักเรียนเพื่อเติมเงิน</h2>
+                <p>ค้นหาจากชื่อ รหัสนักเรียน หรือชั้นเรียน</p>
+              </div>
+              <button type="button" className="topup-modal-close" onClick={() => setTopupStudentPickerOpen(false)} aria-label="ปิดหน้าต่างเลือกนักเรียน">×</button>
+            </div>
+            <input className="input topup-picker-search" type="search" placeholder="🔎 ค้นหาชื่อ / รหัส / ชั้น" value={topupStudentSearch} onChange={(event) => setTopupStudentSearch(event.target.value)} autoFocus />
+            <div className="topup-picker-list">
+              {students.filter((student) => student.active).filter((student) => {
+                const query = topupStudentSearch.trim().toLowerCase()
+                return !query || student.full_name.toLowerCase().includes(query) || student.student_code.toLowerCase().includes(query) || String(student.class_name || '').toLowerCase().includes(query)
+              }).map((student) => (
+                <button key={student.id} type="button" className="topup-picker-student" onClick={() => {
+                  setTopupStudentPickerOpen(false)
+                  openTopupModal(student)
+                }}>
+                  {student.photo_url ? <img src={student.photo_url} alt="" className="topup-picker-avatar" loading="lazy" decoding="async" /> : <span className="topup-picker-avatar topup-picker-avatar-placeholder">👤</span>}
+                  <span className="topup-picker-student-info">
+                    <strong>{student.full_name}</strong>
+                    <small className="topup-picker-meta"><span>{student.student_code}</span><span className={`student-group-badge ${student.class_name === 'เด็กโต' ? 'group-older' : student.class_name === 'เด็กเล็ก' ? 'group-younger' : 'group-unknown'}`}>{student.class_name || 'ไม่ระบุกลุ่ม'}</span></small>
+                  </span>
+                  <span className="topup-picker-balance">฿{Number(student.balance).toFixed(2)}</span>
+                  <span className="topup-picker-arrow">›</span>
+                </button>
+              ))}
+              {students.filter((student) => student.active).filter((student) => {
+                const query = topupStudentSearch.trim().toLowerCase()
+                return !query || student.full_name.toLowerCase().includes(query) || student.student_code.toLowerCase().includes(query) || String(student.class_name || '').toLowerCase().includes(query)
+              }).length === 0 && <div className="topup-picker-empty">{students.some((student) => student.active) ? 'ไม่พบนักเรียนที่ตรงกับคำค้นหา' : 'ยังไม่มีนักเรียนที่เปิดใช้งาน'}</div>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Top Up Modal */}
       {topupModalOpen && selected && (
@@ -1444,6 +1539,84 @@ export default function AdminPage() {
           color: #16a34a;
         }
 
+        .student-main-info {
+          min-width: 0;
+        }
+
+        .student-meta,
+        .topup-picker-meta {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 7px;
+          margin-top: 5px;
+        }
+
+        .student-group-select {
+          min-height: 52px;
+          padding: 10px 42px 10px 16px;
+          border: 2px solid #c7d2fe;
+          border-radius: 15px;
+          background-color: #f8faff;
+          color: #312e81;
+          font-family: inherit;
+          font-size: 18px;
+          font-weight: 800;
+          line-height: 1.4;
+          cursor: pointer;
+          transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+        }
+
+        .student-group-select:focus {
+          border-color: #6366f1;
+          outline: none;
+          background-color: #fff;
+          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14);
+        }
+
+        .student-group-select option {
+          padding: 10px;
+          background: #fff;
+          color: #1e1b4b;
+          font-family: inherit;
+          font-size: 18px;
+          font-weight: 700;
+        }
+
+        .student-group-badge {
+          display: inline-flex;
+          align-items: center;
+          width: fit-content;
+          padding: 3px 9px;
+          border-radius: 999px;
+          font-size: 11px;
+          line-height: 1.5;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+        .student-group-badge.group-older {
+          background: #dbeafe;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
+        }
+
+        .student-group-badge.group-younger {
+          background: #ffedd5;
+          color: #c2410c;
+          border: 1px solid #fed7aa;
+        }
+
+        .student-group-badge.group-unknown {
+          background: #f1f5f9;
+          color: #475569;
+          border: 1px solid #e2e8f0;
+        }
+
+        .topup-picker-meta {
+          gap: 8px;
+        }
+
         .realtime-pagination {
           display: flex;
           align-items: center;
@@ -1647,6 +1820,72 @@ export default function AdminPage() {
         .edit-topup-old-value strong {
           color: #172033;
           font-size: 17px;
+        }
+
+        .topup-picker-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1190;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(15, 23, 42, 0.68);
+          backdrop-filter: blur(7px);
+        }
+
+        .topup-picker-card {
+          display: flex;
+          flex-direction: column;
+          width: min(100%, 560px);
+          max-height: min(780px, calc(100vh - 40px));
+          padding: 24px;
+          overflow: hidden;
+          border: 1px solid #dbeafe;
+          border-radius: 26px;
+          background: #fff;
+          box-shadow: 0 30px 90px rgba(15, 23, 42, 0.3);
+        }
+
+        .topup-picker-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 14px;
+        }
+
+        .topup-picker-header h2 { margin: 0; color: #172033; font-size: 22px; }
+        .topup-picker-header p { margin: 6px 0 0; color: #64748b; font-size: 13px; }
+        .topup-picker-search { width: 100%; min-height: 48px; margin: 18px 0 12px; flex: 0 0 auto; }
+        .topup-picker-list { display: grid; gap: 8px; overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px 4px 0; }
+
+        .topup-picker-student {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          min-width: 0;
+          padding: 11px 12px;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          background: #fff;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .topup-picker-student:hover { border-color: #6ee7b7; background: #f0fdf4; }
+        .topup-picker-avatar { width: 46px; height: 46px; flex: 0 0 46px; border-radius: 14px; object-fit: cover; background: #ede9fe; }
+        .topup-picker-avatar-placeholder { display: grid; place-items: center; font-size: 24px; }
+        .topup-picker-student-info { display: grid; gap: 4px; min-width: 0; flex: 1; }
+        .topup-picker-student-info strong { overflow: hidden; color: #172033; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+        .topup-picker-student-info small { overflow: hidden; color: #64748b; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+        .topup-picker-balance { flex: 0 0 auto; color: #059669; font-size: 13px; font-weight: 900; }
+        .topup-picker-arrow { color: #94a3b8; font-size: 24px; line-height: 1; }
+        .topup-picker-empty { padding: 32px 12px; color: #64748b; text-align: center; font-size: 14px; }
+
+        @media (max-width: 600px) {
+          .topup-picker-backdrop { align-items: flex-end; padding: 0; }
+          .topup-picker-card { width: 100%; max-height: 92vh; padding: 20px 18px calc(20px + env(safe-area-inset-bottom)); border-radius: 28px 28px 0 0; }
         }
 
         .topup-modal-backdrop {

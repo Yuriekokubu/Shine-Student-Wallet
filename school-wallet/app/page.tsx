@@ -124,10 +124,8 @@ export default function HomePage() {
   }, [availableProducts, cart, customItems])
 
   function addProduct(product: Product) {
-    if (!isAdmin) {
-      setMessage('🔐 การชำระเงินสำหรับ Admin เท่านั้น กรุณา Login Admin ก่อนซื้อสินค้า')
-      return
-    }
+    // บัญชีที่ไม่ใช่ Admin ดูสินค้าได้ แต่ไม่สามารถเพิ่มลงตะกร้าได้
+    if (!isAdmin) return
 
     const quantity = cart[product.id] || 0
     if (quantity >= Number(product.stock)) return
@@ -150,10 +148,7 @@ export default function HomePage() {
   }
 
   function addCustomItem() {
-    if (!isAdmin) {
-      setMessage('🔐 การเพิ่มรายการเพื่อชำระเงินสำหรับ Admin เท่านั้น')
-      return
-    }
+    if (!isAdmin) return
 
     const name = customName.trim()
     const price = Number(customPrice)
@@ -173,10 +168,7 @@ export default function HomePage() {
   async function checkout() {
     if (!student || total <= 0) return
 
-    if (!isAdmin) {
-      setMessage('🔐 การชำระเงินสำหรับ Admin เท่านั้น กรุณา Login Admin ก่อน')
-      return
-    }
+    if (!isAdmin) return
 
     setLoading(true)
     setMessage('กำลังชำระเงิน...')
@@ -267,24 +259,13 @@ export default function HomePage() {
             <div className="student-balance-box"><span>ยอดเงินคงเหลือ</span><strong>฿{Number(student.balance).toFixed(2)}</strong></div>
           </section>
 
-          {!isAdmin && (
-            <div className="admin-payment-lock">
-              <div className="admin-payment-lock-icon">🔐</div>
-              <div className="admin-payment-lock-content">
-                <strong>ระบบชำระเงินสำหรับ Admin เท่านั้น</strong>
-                <span>นักเรียนสามารถดูสินค้าและยอดเงินได้ แต่ไม่สามารถเพิ่มสินค้าในตะกร้าหรือชำระเงินเอง</span>
-              </div>
-              <Link href="/admin/login" className="btn primary admin-payment-login-btn">Login Admin</Link>
-            </div>
-          )}
-
           <div className="wallet-layout">
             <section className="card product-section">
               <div className="section-heading wallet-section-heading">
                 <div>
                   <span className="section-eyebrow">MENU</span>
                   <h2>🍪 เลือกขนม</h2>
-                  <p className="muted">{isAdmin ? 'แตะ + เพื่อเพิ่มลงในรายการ' : 'ดูรายการสินค้าและราคาได้ที่นี่'}</p>
+                  <p className="muted">{isAdmin ? 'แตะ + เพื่อเพิ่มลงในรายการ' : 'รายการสินค้าและราคาสำหรับนักเรียน'}</p>
                 </div>
                 <span className="product-count">{availableProducts.length} สินค้า</span>
               </div>
@@ -298,6 +279,7 @@ export default function HomePage() {
                       quantity={cart[product.id] || 0}
                       onAdd={() => addProduct(product)}
                       onRemove={() => removeProduct(product)}
+                      canOrder={isAdmin}
                     />
                   ))}
                 </div>
@@ -332,17 +314,10 @@ export default function HomePage() {
                 }
                 onCheckout={checkout}
               />
-            ) : (
-              <section className="card admin-payment-side-lock">
-                <div className="admin-payment-side-lock-icon">🔐</div>
-                <h3>ชำระเงินโดย Admin เท่านั้น</h3>
-                <p>ระบบจะไม่อนุญาตให้บัญชีทั่วไปตัดเงินจากกระเป๋านักเรียน</p>
-                <Link href="/admin/login" className="btn primary">Login Admin เพื่อชำระเงิน</Link>
-              </section>
-            )}
+            ) : null}
           </div>
 
-          {message && !isAdmin && <div className="status error admin-payment-message">{message}</div>}
+          {message && <div className={message.includes('สำเร็จ') ? 'status success' : 'status error'}>{message}</div>}
         </>
       )}
 

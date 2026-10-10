@@ -5,6 +5,7 @@ type ProductCardProps = {
   quantity: number
   onAdd: () => void
   onRemove: () => void
+  canOrder: boolean
 }
 
 export default function ProductCard({
@@ -12,6 +13,7 @@ export default function ProductCard({
   quantity,
   onAdd,
   onRemove,
+  canOrder,
 }: ProductCardProps) {
   const isOutOfStock = Number(product.stock) <= 0
   const reachedStock = quantity >= Number(product.stock)
@@ -51,34 +53,36 @@ export default function ProductCard({
             </small>
           </div>
 
-          <div className="product-quantity-control">
-            {quantity > 0 && (
+          {canOrder && (
+            <div className="product-quantity-control">
+              {quantity > 0 && (
+                <button
+                  type="button"
+                  className="quantity-btn quantity-btn-minus"
+                  onClick={onRemove}
+                  aria-label={`ลด ${product.name}`}
+                >
+                  −
+                </button>
+              )}
+
+              {quantity > 0 && (
+                <span className="quantity-value" aria-label="จำนวน">
+                  {quantity}
+                </span>
+              )}
+
               <button
                 type="button"
-                className="quantity-btn quantity-btn-minus"
-                onClick={onRemove}
-                aria-label={`ลด ${product.name}`}
+                className="quantity-btn quantity-btn-plus"
+                onClick={onAdd}
+                disabled={isOutOfStock || reachedStock}
+                aria-label={`เพิ่ม ${product.name}`}
               >
-                −
+                +
               </button>
-            )}
-
-            {quantity > 0 && (
-              <span className="quantity-value" aria-label="จำนวน">
-                {quantity}
-              </span>
-            )}
-
-            <button
-              type="button"
-              className="quantity-btn quantity-btn-plus"
-              onClick={onAdd}
-              disabled={isOutOfStock || reachedStock}
-              aria-label={`เพิ่ม ${product.name}`}
-            >
-              +
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </article>
