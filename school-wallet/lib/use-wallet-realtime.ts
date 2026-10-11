@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from './supabase'
 
-export type WalletRealtimeTable = 'students' | 'products' | 'wallet_transactions'
+export type WalletRealtimeTable = 'students' | 'products' | 'wallet_transactions' | 'snack_debts'
 
 export function useWalletRealtime(
   onChange: (table: WalletRealtimeTable) => void,
@@ -67,17 +67,29 @@ export function useWalletRealtime(
         )
 
       if (includeTransactions) {
-        channel.on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'wallet_transactions',
-          },
-          () => {
-            onChangeRef.current('wallet_transactions')
-          },
-        )
+        channel
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'wallet_transactions',
+            },
+            () => {
+              onChangeRef.current('wallet_transactions')
+            },
+          )
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'snack_debts',
+            },
+            () => {
+              onChangeRef.current('snack_debts')
+            },
+          )
       }
 
       channel.subscribe((status, subscribeError) => {

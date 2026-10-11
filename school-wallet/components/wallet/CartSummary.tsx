@@ -10,6 +10,7 @@ type CartSummaryProps = {
   message: string
   onRemoveCustomItem: (id: string) => void
   onCheckout: () => void
+  onRecordDebt: () => void
 }
 
 export default function CartSummary({
@@ -22,6 +23,7 @@ export default function CartSummary({
   message,
   onRemoveCustomItem,
   onCheckout,
+  onRecordDebt,
 }: CartSummaryProps) {
   const hasItems =
     products.some((product) => cart[product.id] > 0) || customItems.length > 0
@@ -128,8 +130,26 @@ export default function CartSummary({
         )}
       </button>
 
+      {insufficientBalance && hasItems && (
+        <div className="cart-credit-option">
+          <div className="cart-credit-notice">
+            <strong>เงินไม่พอสำหรับรายการนี้</strong>
+            <span>สามารถบันทึกเป็นยอดติดเงินค่าขนมไว้ก่อน โดยไม่หักเงินในกระเป๋า</span>
+            <small>ยอดติดเงินค่าขนม ฿{total.toFixed(2)}</small>
+          </div>
+          <button
+            type="button"
+            className="cart-credit-btn"
+            disabled={loading}
+            onClick={onRecordDebt}
+          >
+            {loading ? 'กำลังบันทึก...' : '📝 บันทึกติดเงินค่าขนม'}
+          </button>
+        </div>
+      )}
+
       {message && (
-        <div className="status success cart-message">✓ {message}</div>
+        <div className={`status ${message.includes('ไม่สำเร็จ') ? 'error' : 'success'} cart-message`}>✓ {message}</div>
       )}
     </aside>
   )

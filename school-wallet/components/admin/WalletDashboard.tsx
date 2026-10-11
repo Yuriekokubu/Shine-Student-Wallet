@@ -15,7 +15,7 @@ type Student = {
 type Transaction = {
   id: string
   student_id: string
-  type: 'topup' | 'purchase' | 'refund' | 'adjustment'
+  type: 'topup' | 'purchase' | 'refund' | 'adjustment' | 'debt_repayment'
   amount: number
   created_at: string
 }
@@ -30,7 +30,7 @@ export default function WalletDashboard({ students, transactions, totalBalance }
   const data = useMemo(() => {
     const active = students.filter((student) => student.active)
     const activeById = new Map(active.map((student) => [student.id, student]))
-    const purchases = transactions.filter((transaction) => transaction.type === 'purchase')
+    const purchases = transactions.filter((transaction) => transaction.type === 'purchase' || transaction.type === 'debt_repayment')
     const spending = new Map<string, number>()
     const daily = new Map<string, number>()
     const groups = new Map<string, number>()
@@ -77,8 +77,8 @@ export default function WalletDashboard({ students, transactions, totalBalance }
       <div className="dashboard-note">📈 สรุปจากธุรกรรม {transactions.length} รายการล่าสุดที่ระบบโหลดไว้ ตัวเลขจะอัปเดตเมื่อข้อมูลรีเฟรช</div>
       <div className="dashboard-kpis">
         <div className="dashboard-kpi"><span>👨‍🎓 นักเรียนที่ใช้งาน</span><strong>{data.activeCount}</strong><small>บัญชีที่เปิดใช้งาน</small></div>
-        <div className="dashboard-kpi"><span>🛍️ ยอดใช้จ่ายรวม</span><strong>฿{money(data.totalSpend)}</strong><small>จากรายการซื้อที่โหลดอยู่</small></div>
-        <div className="dashboard-kpi"><span>🧾 จำนวนครั้งที่ซื้อ</span><strong>{data.purchaseCount}</strong><small>ธุรกรรมซื้อสินค้า</small></div>
+        <div className="dashboard-kpi"><span>🛍️ ยอดใช้จ่ายรวม</span><strong>฿{money(data.totalSpend)}</strong><small>รวมรายการซื้อและยอดชำระคืนที่อนุมัติแล้ว</small></div>
+        <div className="dashboard-kpi"><span>🧾 จำนวนครั้งที่ซื้อ</span><strong>{data.purchaseCount}</strong><small>รายการซื้อและชำระคืนที่อนุมัติ</small></div>
         <div className="dashboard-kpi warning"><span>⚠️ ยอดเงินต่ำกว่า ฿20</span><strong>{data.lowBalance}</strong><small>ควรตรวจสอบหรือเติมเงิน</small></div>
       </div>
 

@@ -132,6 +132,7 @@ export default function StudentPage() {
     if (transaction.type === 'topup') return 'เติมเงิน'
     if (transaction.type === 'purchase') return 'ซื้อสินค้า'
     if (transaction.type === 'refund') return 'คืนเงิน'
+    if (transaction.type === 'debt_repayment') return 'รับชำระเงินคืนค่าขนม'
     return 'ปรับยอดเงิน'
   }
 
@@ -233,12 +234,13 @@ export default function StudentPage() {
                 <div className="student-history-state"><span className="student-empty-icon">📋</span>ยังไม่มีประวัติธุรกรรม</div>
               ) : (
                 transactions.map((transaction) => {
-                  const isTopup = transaction.type === 'topup' || transaction.type === 'refund'
+                  const isDebtRepayment = transaction.type === 'debt_repayment'
+                  const isTopup = transaction.type === 'topup' || transaction.type === 'refund' || isDebtRepayment
                   return (
                     <article className="student-transaction-item" key={transaction.id}>
-                      <div className={`student-transaction-icon ${isTopup ? 'is-in' : 'is-out'}`}>{isTopup ? '↓' : '↑'}</div>
+                      <div className={`student-transaction-icon ${isTopup ? 'is-in' : 'is-out'}`}>{isDebtRepayment ? '✓' : isTopup ? '↓' : '↑'}</div>
                       <div className="student-transaction-main">
-                        <div className="student-transaction-title-row"><strong>{getTransactionTitle(transaction)}</strong><strong className={isTopup ? 'amount-in' : 'amount-out'}>{isTopup ? '+' : '-'}฿{formatAmount(transaction.amount)}</strong></div>
+                        <div className="student-transaction-title-row"><strong>{getTransactionTitle(transaction)}</strong><strong className={isTopup ? 'amount-in' : 'amount-out'}>{isDebtRepayment ? '' : isTopup ? '+' : '-'}฿{formatAmount(transaction.amount)}</strong></div>
                         <div className="student-transaction-date">{formatDate(transaction.created_at)}</div>
                         {transaction.items?.length > 0 && <div className="student-transaction-items">{transaction.items.map((item, index) => <div key={`${transaction.id}-${index}`}>{item.name} × {item.quantity}</div>)}</div>}
                         {transaction.note && <div className="student-transaction-note">{transaction.note}</div>}

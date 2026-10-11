@@ -8,7 +8,7 @@ import ProductCard from '../components/wallet/ProductCard'
 import { supabase } from '../lib/supabase'
 import { getActiveProducts } from '../lib/services/product-service'
 import { getActiveStudentByToken } from '../lib/services/student-service'
-import { purchaseProducts } from '../lib/services/wallet-service'
+import { purchaseProducts, recordSnackDebt } from '../lib/services/wallet-service'
 import { useWalletRealtime } from '../lib/use-wallet-realtime'
 import type { CartItem, CustomItem, Product, Student } from '../types/school-wallet'
 
@@ -209,6 +209,35 @@ export default function HomePage() {
     }
   }
 
+  async function recordDebt() {
+    if (!student || total <= 0 || !isAdmin) return
+
+    const items: CartItem[] = [
+      ...Object.entries(cart)
+        .filter(([, quantity]) => quantity > 0)
+        .map(([product_id, quantity]) => ({ product_id, quantity })),
+      ...customItems.map((item) => ({
+        custom_name: item.name,
+        custom_price: item.price,
+        quantity: item.quantity,
+      })),
+    ]
+
+    setLoading(true)
+    setMessage('กำลังบันทึกยอดติดเงินค่าขนม...')
+
+    try {
+      const result = await recordSnackDebt(student.id, items)
+      setCart({})
+      setCustomItems([])
+      setMessage(`บันทึกติดเงินค่าขนม ฿${Number(result.amount).toFixed(2)} สำเร็จแล้ว โดยไม่หักยอดเงินในกระเป๋า`)
+    } catch (error) {
+      setMessage(`บันทึกติดเงินไม่สำเร็จ: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (token === undefined || (loading && token && !student)) {
     return (
       <main className="shell app-shell">
@@ -323,6 +352,7 @@ export default function HomePage() {
                   setCustomItems((current) => current.filter((item) => item.id !== id))
                 }
                 onCheckout={checkout}
+                onRecordDebt={recordDebt}
               />
             ) : null}
           </div>

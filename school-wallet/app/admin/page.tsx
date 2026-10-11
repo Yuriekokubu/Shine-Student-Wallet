@@ -6,40 +6,34 @@ import QRCode from 'qrcode'
 import { supabase } from '../../lib/supabase'
 import { useWalletRealtime } from '../../lib/use-wallet-realtime'
 import WalletDashboard from '../../components/admin/WalletDashboard'
-import { Activity, GraduationCap, History, LogOut, Package, Pencil, Plus, QrCode, Search, Store, Wallet, X } from 'lucide-react'
+import { Activity, CheckCircle2, ClipboardCheck, GraduationCap, History, LayoutDashboard, LogOut, Package, Pencil, Plus, QrCode, RadioTower, Search, ShoppingBag, Store, Trash2, UsersRound, Wallet, X } from 'lucide-react'
+import AdminOverlays from '../../components/admin/AdminOverlays'
+import RealtimeTransactionsPanel from '../../components/admin/RealtimeTransactionsPanel'
+import PurchaseDetailsModal, { type PurchaseItem } from '../../components/admin/PurchaseDetailsModal'
+import type { Student, Product, WalletTransaction, ConfirmModalData } from '../../types/admin'
+import './admin-page.css'
 
-type Student = {
-  id: string
-  student_code: string
-  full_name: string
-  class_name: string | null
-  balance: number
-  qr_token: string
-  photo_url: string | null
-  active: boolean
-  created_at: string
-}
-
-type Product = {
-  id: string
+type SnackDebtItem = {
   name: string
-  price: number
-  stock: number
-  image_url: string | null
-  active: boolean
-  created_at: string
+  quantity: number
+  unit_price: number
+  subtotal: number
 }
 
-type WalletTransaction = {
+type SnackDebt = {
   id: string
   student_id: string
-  type: 'topup' | 'purchase' | 'refund' | 'adjustment'
+  order_id: string
   amount: number
-  balance_before: number
-  balance_after: number
-  reference: string | null
-  note: string | null
+  items: SnackDebtItem[]
+  status: 'unpaid' | 'paid'
   created_at: string
+  paid_at: string | null
+  student: {
+    full_name: string
+    student_code: string
+    class_name: string | null
+  } | null
 }
 
 export default function AdminPage() {
@@ -48,6 +42,11 @@ export default function AdminPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [transactions, setTransactions] = useState<WalletTransaction[]>([])
+  const [snackDebts, setSnackDebts] = useState<SnackDebt[]>([])
+  const [debtLoading, setDebtLoading] = useState(false)
+  const [debtMessage, setDebtMessage] = useState('')
+  const [debtActionId, setDebtActionId] = useState<string | null>(null)
+  const [debtApprovalModal, setDebtApprovalModal] = useState<SnackDebt | null>(null)
   const [selected, setSelected] = useState<Student | null>(null)
   const [history, setHistory] = useState<WalletTransaction[]>([])
   const [historyPage, setHistoryPage] = useState(1)
@@ -57,7 +56,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'dashboard' | 'students' | 'products' | 'realtime'>('dashboard')
+  const [tab, setTab] = useState<'dashboard' | 'students' | 'products' | 'realtime' | 'debts'>('dashboard')
   const { connected: realtimeConnected, error: realtimeError } = useWalletRealtime((table) => {
     if (!supabase) return
 
@@ -94,8 +93,16 @@ export default function AdminPage() {
           if (!error) setTransactions((data || []) as WalletTransaction[])
         })
     }
+
+    if (table === 'snack_debts') {
+      void loadSnackDebts()
+    }
   }, authorized, true)
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [purchaseDetailsTransaction, setPurchaseDetailsTransaction] = useState<WalletTransaction | null>(null)
+  const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([])
+  const [purchaseDetailsLoading, setPurchaseDetailsLoading] = useState(false)
+  const [purchaseDetailsError, setPurchaseDetailsError] = useState('')
   const [qr, setQr] = useState('')
 
   const selectedHistory = useMemo(() => {
@@ -152,16 +159,7 @@ export default function AdminPage() {
   const [productImage, setProductImage] = useState<File | null>(null)
   const [productEdit, setProductEdit] = useState<Product | null>(null)
 
-  const [confirmModal, setConfirmModal] = useState<{
-    title: string
-    message: string
-    detail?: string
-    icon?: string
-    confirmText?: string
-    cancelText?: string
-    danger?: boolean
-    onConfirm: () => Promise<void> | void
-  } | null>(null)
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalData | null>(null)
   const [confirmLoading, setConfirmLoading] = useState(false)
 
   useEffect(() => {
@@ -213,6 +211,53 @@ export default function AdminPage() {
     setLoading(false)
   }
 
+  async function loadSnackDebts() {
+    if (!supabase) return
+
+    setDebtLoading(true)
+    setDebtMessage('')
+
+    const { data, error } = await supabase
+      .from('snack_debts')
+      .select('id,student_id,order_id,amount,items,status,created_at,paid_at,student:students!snack_debts_student_id_fkey(full_name,student_code,class_name)')
+      .order('created_at', { ascending: false })
+      .limit(500)
+
+    if (error) {
+      setDebtMessage(`โหลดประวัติติดเงินไม่สำเร็จ: ${error.message}`)
+      setSnackDebts([])
+    } else {
+      setSnackDebts((data || []) as unknown as SnackDebt[])
+    }
+
+    setDebtLoading(false)
+  }
+
+  async function approveSnackDebtPayment(debtId: string) {
+    if (!supabase || debtActionId) return
+
+    setDebtActionId(debtId)
+    setDebtMessage('กำลังอนุมัติการชำระเงิน...')
+
+    try {
+      const { error } = await supabase.rpc('approve_snack_debt_payment', {
+        p_debt_id: debtId,
+      })
+
+      if (error) {
+        setDebtMessage(`อนุมัติไม่สำเร็จ: ${error.message}`)
+      } else {
+        setDebtApprovalModal(null)
+        setDebtMessage('อนุมัติรับชำระเงินคืนเรียบร้อยแล้ว')
+        await loadSnackDebts()
+      }
+    } catch (error) {
+      setDebtMessage(`อนุมัติไม่สำเร็จ: ${error instanceof Error ? error.message : String(error)}`)
+    } finally {
+      setDebtActionId(null)
+    }
+  }
+
   // Prepare the active student list once so the students tab and top-up picker
   // don't repeatedly filter and sort the full dataset during renders.
   const activeStudents = useMemo(
@@ -242,7 +287,7 @@ export default function AdminPage() {
 
   const totalBalance = useMemo(() => students.filter((student) => student.active).reduce((total, student) => total + Number(student.balance), 0), [students])
   const totalTopup = useMemo(() => transactions.filter((transaction) => transaction.type === 'topup').reduce((total, transaction) => total + Number(transaction.amount), 0), [transactions])
-  const totalPurchase = useMemo(() => transactions.filter((transaction) => transaction.type === 'purchase').reduce((total, transaction) => total + Number(transaction.amount), 0), [transactions])
+  const totalPurchase = useMemo(() => transactions.filter((transaction) => transaction.type === 'purchase' || transaction.type === 'debt_repayment').reduce((total, transaction) => total + Number(transaction.amount), 0), [transactions])
 
   async function compressStudentPhoto(file: File): Promise<File> {
     if (!file.type.startsWith('image/')) return file
@@ -460,6 +505,86 @@ export default function AdminPage() {
     }
   }
 
+  async function executeDeletePurchase(transaction: WalletTransaction) {
+    if (!supabase || (transaction.type !== 'purchase' && transaction.type !== 'debt_repayment')) return
+
+    try {
+      const { data, error } = await supabase.rpc('admin_delete_purchase_transaction', {
+        p_transaction_id: transaction.id,
+      })
+      if (error) throw error
+
+      const updatedStudent = data as Student
+      setStudents((current) =>
+        current.map((student) => student.id === updatedStudent.id ? updatedStudent : student),
+      )
+      if (selected?.id === updatedStudent.id) setSelected(updatedStudent)
+
+      // อัปเดตข้อมูลสินค้า สต็อก และธุรกรรมจากฐานข้อมูลหลังลบสำเร็จ
+      await loadAll()
+      if (selected) {
+        const { data: historyData, error: historyError } = await supabase
+          .from('wallet_transactions')
+          .select('id,student_id,type,amount,balance_before,balance_after,reference,note,created_at')
+          .eq('student_id', selected.id)
+          .order('created_at', { ascending: false })
+
+        if (historyError) throw historyError
+        setHistory((historyData || []) as WalletTransaction[])
+      }
+
+      setMessage(transaction.type === 'debt_repayment' ? 'ลบรายการรับชำระคืนค่าขนมแล้ว ยกเลิกคำสั่งซื้อและคืนสต็อกสินค้าเรียบร้อยแล้ว' : 'ลบธุรกรรมซื้อสินค้าเรียบร้อยแล้ว คืนเงินให้นักเรียนและคืนสต็อกสินค้าแล้ว')
+    } catch (error) {
+      setMessage(`ลบธุรกรรมไม่สำเร็จ: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  function requestDeletePurchase(transaction: WalletTransaction) {
+    if (transaction.type !== 'purchase' && transaction.type !== 'debt_repayment') return
+    const isRepayment = transaction.type === 'debt_repayment'
+    setConfirmModal({
+      title: isRepayment ? 'ยืนยันลบรายการรับชำระคืนค่าขนม' : 'ยืนยันลบธุรกรรมซื้อสินค้า',
+      message: isRepayment ? 'ต้องการลบรายการรับชำระคืนนี้และยกเลิกคำสั่งซื้อที่เกี่ยวข้องใช่หรือไม่?' : 'ต้องการลบรายการซื้อสินค้านี้ใช่หรือไม่?',
+      detail: `ยอด ฿${Number(transaction.amount).toFixed(2)} · ระบบจะยกเลิกคำสั่งซื้อ คืนสต็อกสินค้า และคำนวณยอดคงเหลือใหม่${isRepayment ? ' พร้อมลบรายการหนี้ที่ผูกกับคำสั่งซื้อนี้' : ' และคืนเงินให้นักเรียน'}`,
+      icon: '🗑️',
+      confirmText: 'ลบธุรกรรมและคืนสต็อก',
+      cancelText: 'ยกเลิก',
+      danger: true,
+      onConfirm: () => executeDeletePurchase(transaction),
+    })
+  }
+
+  async function openPurchaseDetails(transaction: WalletTransaction) {
+    // รายการรับชำระคืนค่าขนมใช้อ้างอิง order_id เดียวกับคำสั่งซื้อ
+    // จึงสามารถเปิดรายละเอียดสินค้าเดิมได้เช่นเดียวกับรายการซื้อสินค้า
+    if (transaction.type !== 'purchase' && transaction.type !== 'debt_repayment') return
+
+    setPurchaseDetailsTransaction(transaction)
+    setPurchaseItems([])
+    setPurchaseDetailsError('')
+    setPurchaseDetailsLoading(true)
+
+    try {
+      if (!transaction.reference || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(transaction.reference)) {
+        throw new Error('รายการนี้ไม่มีเลขอ้างอิงคำสั่งซื้อที่ถูกต้อง')
+      }
+      if (!supabase) throw new Error('ไม่สามารถเชื่อมต่อฐานข้อมูลได้')
+
+      const { data, error } = await supabase
+        .from('order_items')
+        .select('id,product_name,quantity,unit_price,subtotal')
+        .eq('order_id', transaction.reference)
+        .order('id', { ascending: true })
+
+      if (error) throw error
+      setPurchaseItems((data || []) as PurchaseItem[])
+    } catch (error) {
+      setPurchaseDetailsError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPurchaseDetailsLoading(false)
+    }
+  }
+
   async function openHistory(student: Student) {
     if (!supabase) return
 
@@ -587,7 +712,7 @@ export default function AdminPage() {
   if (!ready || !authorized) return <main className="shell"><div className="card">กำลังตรวจสอบสิทธิ์ Admin...</div></main>
 
   return (
-    <main className="shell">
+    <main className="shell admin-page-root">
       <div className="topbar admin-topbar">
         <div><div className="brand"><span className="admin-brand-icon"><Wallet size={22} strokeWidth={2.4} /></span><span>Shine Wallet <span className="admin-brand-light">Admin</span></span></div><div className="muted">จัดการนักเรียน · เงิน · สินค้า · ประวัติธุรกรรม</div></div>
         <div className="admin-actions">
@@ -621,123 +746,94 @@ export default function AdminPage() {
       </div>
 
       <div className="admin-tabs">
-        <button className={`admin-tab ${tab === 'dashboard' ? 'active' : ''}`} onClick={() => setTab('dashboard')}><span><Activity size={22} /></span><b>ภาพรวม</b><small>Dashboard &amp; สรุปข้อมูล</small></button>
-        <button className={`admin-tab ${tab === 'students' ? 'active' : ''}`} onClick={() => setTab('students')}><span><GraduationCap size={22} /></span><b>นักเรียน</b><small>ข้อมูลและกระเป๋าเงิน</small></button>
-        <button className={`admin-tab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')}><span><Package size={22} /></span><b>สินค้า</b><small>สินค้าและสต็อก</small></button>
-        <button className={`admin-tab ${tab === 'realtime' ? 'active' : ''}`} onClick={() => setTab('realtime')}><span><Activity size={22} /></span><b>ธุรกรรมสด</b><small>ติดตามรายการล่าสุด</small></button>
+        <button className={`admin-tab ${tab === 'dashboard' ? 'active' : ''}`} onClick={() => setTab('dashboard')} aria-label="ภาพรวม"><span><LayoutDashboard size={22} strokeWidth={2.2} /></span><b>ภาพรวม</b><small>Dashboard &amp; สรุปข้อมูล</small></button>
+        <button className={`admin-tab ${tab === 'students' ? 'active' : ''}`} onClick={() => setTab('students')} aria-label="นักเรียน"><span><UsersRound size={22} strokeWidth={2.2} /></span><b>นักเรียน</b><small>ข้อมูลและกระเป๋าเงิน</small></button>
+        <button className={`admin-tab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')} aria-label="สินค้า"><span><ShoppingBag size={22} strokeWidth={2.2} /></span><b>สินค้า</b><small>สินค้าและสต็อก</small></button>
+        <button className={`admin-tab ${tab === 'debts' ? 'active' : ''}`} onClick={() => { setTab('debts'); void loadSnackDebts() }} aria-label="ติดเงินค่าขนม"><span><ClipboardCheck size={22} strokeWidth={2.2} /></span><b>ติดเงินค่าขนม</b><small>ประวัติและอนุมัติรับชำระ</small></button>
+        <button className={`admin-tab ${tab === 'realtime' ? 'active' : ''}`} onClick={() => setTab('realtime')} aria-label="ธุรกรรมสด"><span><RadioTower size={22} strokeWidth={2.2} /></span><b>ธุรกรรมสด</b><small>ติดตามรายการล่าสุด</small></button>
       </div>
 
       {tab === 'dashboard' ? (
         <WalletDashboard students={students} transactions={transactions} totalBalance={totalBalance} />
       ) : tab === 'realtime' ? (
-        <div className="card admin-section realtime-transactions-panel">
+        <RealtimeTransactionsPanel
+          students={students}
+          transactions={transactions}
+          paginatedTransactions={paginatedRealtime}
+          connected={realtimeConnected}
+          error={realtimeError}
+          page={realtimePage}
+          totalPages={totalRealtimePages}
+          onPageChange={setRealtimePage}
+        />
+      ) : tab === 'debts' ? (
+        <section className="card admin-section snack-debt-section">
           <div className="section-heading">
             <div>
-              <h2>🔴 ธุรกรรมแบบเรียลไทม์</h2>
-              <p className="muted">รายการเติมเงินและซื้อสินค้าที่เกิดขึ้นล่าสุดจะเข้ามาอัตโนมัติ โดยไม่ต้องรีเฟรชหน้า</p>
+              <h2><ClipboardCheck size={23} aria-hidden="true" /> ติดเงินค่าขนม</h2>
+              <p className="muted">บันทึกรายการที่นักเรียนรับขนมไปก่อน และอนุมัติเมื่อได้รับเงินคืนแล้ว</p>
             </div>
-            <div className={`realtime-status ${realtimeConnected ? 'online' : 'offline'}`}>
-              <span className="realtime-dot" />
-              {realtimeConnected ? 'LIVE เชื่อมต่อแล้ว' : 'กำลังเชื่อมต่อ...'}
-            </div>
+            <button type="button" className="btn" onClick={() => void loadSnackDebts()} disabled={debtLoading}>
+              {debtLoading ? 'กำลังโหลด...' : '↻ รีเฟรช'}
+            </button>
           </div>
 
-          <div className="realtime-summary">
-            <div><span>รายการที่แสดง</span><b>{transactions.length}</b></div>
-            <div><span>เติมเงิน</span><b>{transactions.filter((t) => t.type === 'topup').length}</b></div>
-            <div><span>ซื้อสินค้า</span><b>{transactions.filter((t) => t.type === 'purchase').length}</b></div>
+          <div className="snack-debt-summary">
+            <div><span>ยอดค้างชำระ</span><strong>฿{snackDebts.filter((debt) => debt.status === 'unpaid').reduce((sum, debt) => sum + Number(debt.amount), 0).toFixed(2)}</strong></div>
+            <div><span>รายการค้างชำระ</span><strong>{snackDebts.filter((debt) => debt.status === 'unpaid').length}</strong></div>
+            <div><span>ชำระแล้ว</span><strong>{snackDebts.filter((debt) => debt.status === 'paid').length}</strong></div>
           </div>
 
-          {realtimeError && (
-          <div className="realtime-error">
-            ⚠️ Realtime ยังเชื่อมต่อไม่ได้: {realtimeError}
-          </div>
-        )}
+          {debtMessage && <div className={`status ${debtMessage.includes('เรียบร้อยแล้ว') ? 'success' : 'error'} snack-debt-message`}>{debtMessage}</div>}
 
-        {transactions.length === 0 ? (
-            <div className="history-empty-state">
-              <div className="history-empty-icon">📭</div>
-              <h4>ยังไม่มีธุรกรรม</h4>
-              <p className="muted">เมื่อมีการเติมเงินหรือซื้อสินค้า รายการจะปรากฏที่นี่ทันที</p>
+          {debtLoading && snackDebts.length === 0 ? (
+            <div className="snack-debt-empty">กำลังโหลดประวัติติดเงิน...</div>
+          ) : snackDebts.length === 0 ? (
+            <div className="snack-debt-empty">
+              <span>🧾</span>
+              <strong>ยังไม่มีประวัติติดเงินค่าขนม</strong>
+              <p>เมื่อบันทึกการซื้อเป็นเงินเชื่อ รายการจะปรากฏที่นี่</p>
+              {debtMessage.includes('ไม่สำเร็จ') && <small>หากยังไม่ได้ติดตั้งระบบ ให้รันไฟล์ supabase/snack-debt.sql ใน Supabase SQL Editor ก่อน</small>}
             </div>
           ) : (
-            <>
-              <div className="realtime-list">
-              {paginatedRealtime.map((transaction) => {
-                const student = students.find((item) => item.id === transaction.student_id)
-                const isTopup = transaction.type === 'topup'
-                return (
-                  <div className="realtime-transaction" key={transaction.id}>
-                    <div className={`realtime-type-icon ${isTopup ? 'topup' : 'purchase'}`}>
-                      {isTopup ? '＋' : '🛍️'}
+            <div className="snack-debt-list">
+              {[...snackDebts].sort((a, b) => Number(a.status === 'paid') - Number(b.status === 'paid') || new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((debt) => (
+                <article className={`snack-debt-card ${debt.status === 'paid' ? 'is-paid' : 'is-unpaid'}`} key={debt.id}>
+                  <div className="snack-debt-card-top">
+                    <div className="snack-debt-student">
+                      <strong>{debt.student?.full_name || 'ไม่พบชื่อนักเรียน'}</strong>
+                      <span>{debt.student?.student_code || '—'} · {debt.student?.class_name || 'ไม่ระบุชั้น'}</span>
                     </div>
-                    <div className="realtime-transaction-main">
-                      <div className="realtime-transaction-title">
-                        <b>{student?.full_name || 'ไม่พบข้อมูลนักเรียน'}</b>
-                        <span className={`realtime-type-badge ${isTopup ? 'topup' : 'purchase'}`}>
-                          {isTopup ? 'เติมเงิน' : 'ซื้อสินค้า'}
-                        </span>
-                      </div>
-                      <div className="muted">
-                        {student?.student_code || transaction.student_id} · {transaction.note || '-'}
-                      </div>
-                      <small className="muted">
-                        {new Date(transaction.created_at).toLocaleString('th-TH', {
-                          dateStyle: 'medium',
-                          timeStyle: 'short',
-                        })}
-                      </small>
-                    </div>
-                    <div className={`realtime-amount ${isTopup ? 'topup' : 'purchase'}`}>
-                      {isTopup ? '+' : '-'}฿{Number(transaction.amount).toFixed(2)}
-                    </div>
+                    <span className={`snack-debt-status ${debt.status}`}>{debt.status === 'paid' ? '✓ ชำระแล้ว' : 'ยังค้างชำระ'}</span>
                   </div>
-                )
-              })}
-            </div>
-            <div className="realtime-pagination">
-              <span className="realtime-pagination-info">
-                หน้า {realtimePage} / {totalRealtimePages} · แสดง {paginatedRealtime.length} จาก {transactions.length} รายการ
-              </span>
-              <div className="realtime-pagination-buttons">
-                <button
-                  type="button"
-                  className="realtime-pagination-btn"
-                  onClick={() => setRealtimePage((page) => Math.max(1, page - 1))}
-                  disabled={realtimePage === 1}
-                >
-                  ← ก่อนหน้า
-                </button>
-                <div className="realtime-pagination-pages">
-                  {Array.from({ length: totalRealtimePages }, (_, index) => index + 1)
-                    .slice(
-                      Math.max(0, realtimePage - 3),
-                      Math.min(totalRealtimePages, realtimePage + 2),
-                    )
-                    .map((page) => (
-                      <button
-                        type="button"
-                        key={page}
-                        className={`realtime-pagination-number ${page === realtimePage ? 'active' : ''}`}
-                        onClick={() => setRealtimePage(page)}
-                      >
-                        {page}
-                      </button>
+                  <div className="snack-debt-items">
+                    {(Array.isArray(debt.items) ? debt.items : []).map((item, index) => (
+                      <div key={`${debt.id}-${index}`}>
+                        <span>{item.name} × {item.quantity}</span>
+                        <b>฿{Number(item.subtotal).toFixed(2)}</b>
+                      </div>
                     ))}
-                </div>
-                <button
-                  type="button"
-                  className="realtime-pagination-btn"
-                  onClick={() => setRealtimePage((page) => Math.min(totalRealtimePages, page + 1))}
-                  disabled={realtimePage === totalRealtimePages}
-                >
-                  ถัดไป →
-                </button>
-              </div>
+                  </div>
+                  <div className="snack-debt-card-bottom">
+                    <div>
+                      <small>ยอดติดเงิน</small>
+                      <strong>฿{Number(debt.amount).toFixed(2)}</strong>
+                      <span>บันทึกเมื่อ {new Date(debt.created_at).toLocaleString('th-TH')}</span>
+                      {debt.paid_at && <span>รับชำระเมื่อ {new Date(debt.paid_at).toLocaleString('th-TH')}</span>}
+                    </div>
+                    {debt.status === 'unpaid' ? (
+                      <button type="button" className="snack-debt-approve-btn" onClick={() => setDebtApprovalModal(debt)} disabled={debtActionId !== null}>
+                        ✓ อนุมัติรับชำระเงินคืน
+                      </button>
+                    ) : (
+                      <span className="snack-debt-paid-note">บันทึกการชำระเงินแล้ว</span>
+                    )}
+                  </div>
+                </article>
+              ))}
             </div>
-            </>
           )}
-        </div>
+        </section>
       ) : tab === 'students' ? (
         <>
           <div className="card admin-section">
@@ -758,7 +854,13 @@ export default function AdminPage() {
                 <div className="student-row" key={student.id}>
                   <div className="student-main"><Link href={`/?student=${encodeURIComponent(student.qr_token)}`} className="student-avatar-link" aria-label={`ไปหน้าซื้อสินค้าสำหรับ ${student.full_name}`} title="คลิกรูปเพื่อไปหน้าซื้อสินค้า">{student.photo_url ? <img src={student.photo_url} alt={`รูปนักเรียน ${student.full_name}`} className="student-avatar" loading="lazy" decoding="async" /> : <div className="student-avatar-placeholder student-avatar">👤</div>}</Link><div className="student-main-info"><b>{student.full_name}</b><div className="student-meta"><span className="muted">{student.student_code}</span><span className={`student-group-badge ${student.class_name === 'เด็กโต' ? 'group-older' : student.class_name === 'เด็กเล็ก' ? 'group-younger' : 'group-unknown'}`}>{student.class_name || 'ไม่ระบุกลุ่ม'}</span></div></div></div>
                   <div className={`student-balance ${Number(student.balance) !== 0 ? 'has-balance' : ''}`}>฿{Number(student.balance).toFixed(2)}</div>
-                  <div className="student-actions"><button className="btn primary" onClick={() => openTopupModal(student)}>＋ เติมเงิน</button><button className="btn history-open-btn" onClick={() => openHistory(student)}><History size={15} /> ประวัติ</button><button className="btn" onClick={() => showQr(student)}><QrCode size={15} /> QR</button><button className="btn" onClick={() => openEdit(student)}><Pencil size={15} /> แก้ไข</button><button className="btn danger-btn" onClick={() => requestDeleteStudent(student)}>ปิดใช้งาน</button></div>
+                  <div className="student-actions">
+                    <button type="button" className="btn primary" onClick={() => openTopupModal(student)} title="เติมเงินให้นักเรียน" aria-label={`เติมเงิน ${student.full_name}`}>＋ เติมเงิน</button>
+                    <button type="button" className="btn history-open-btn" onClick={() => openHistory(student)} title="ดูประวัติธุรกรรม" aria-label={`ประวัติธุรกรรม ${student.full_name}`}><History size={15} /> ประวัติ</button>
+                    <button type="button" className="btn" onClick={() => showQr(student)} title="แสดง QR Code" aria-label={`แสดง QR Code ${student.full_name}`}><QrCode size={15} /> QR</button>
+                    <button type="button" className="btn" onClick={() => openEdit(student)} title="แก้ไขข้อมูลนักเรียน" aria-label={`แก้ไข ${student.full_name}`}><Pencil size={15} /> แก้ไข</button>
+                    <button type="button" className="btn danger-btn" onClick={() => requestDeleteStudent(student)} title="ปิดใช้งานนักเรียน" aria-label={`ปิดใช้งาน ${student.full_name}`}>ปิดใช้งาน</button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -911,6 +1013,7 @@ export default function AdminPage() {
                         const isPurchase = transaction.type === 'purchase'
                         const isTopup = transaction.type === 'topup'
                         const isRefund = transaction.type === 'refund'
+                        const isDebtRepayment = transaction.type === 'debt_repayment'
 
                         return (
                           <tr key={transaction.id} className="history-row">
@@ -946,7 +1049,12 @@ export default function AdminPage() {
                                   ↩ คืนเงิน
                                 </span>
                               )}
-                              {!isPurchase && !isTopup && !isRefund && (
+                              {isDebtRepayment && (
+                                <span className="history-badge badge-refund">
+                                  ✓ รับชำระคืนค่าขนม
+                                </span>
+                              )}
+                              {!isPurchase && !isTopup && !isRefund && !isDebtRepayment && (
                                 <span className="history-badge badge-adjustment">
                                   ⚙ ปรับยอด
                                 </span>
@@ -958,7 +1066,7 @@ export default function AdminPage() {
                                 className={`history-amount-text ${
                                   isPurchase
                                     ? 'amount-red'
-                                    : isTopup || isRefund
+                                    : isTopup || isRefund || isDebtRepayment
                                     ? 'amount-green'
                                     : 'amount-neutral'
                                 }`}
@@ -989,6 +1097,26 @@ export default function AdminPage() {
                               )}
                             </td>
                             <td className="history-action-cell">
+                              {(isPurchase || isDebtRepayment) && (
+                                <button
+                                  type="button"
+                                  className="history-view-purchase-btn"
+                                  onClick={() => void openPurchaseDetails(transaction)}
+                                  title="ดูรายการสินค้าที่ซื้อด้วยเงินค้างชำระ"
+                                >
+                                  <ShoppingBag size={14} /> ดูสินค้า
+                                </button>
+                              )}
+                              {(isPurchase || isDebtRepayment) && (
+                                <button
+                                  type="button"
+                                  className="btn danger-btn history-delete-transaction-btn"
+                                  onClick={() => requestDeletePurchase(transaction)}
+                                  title="ลบธุรกรรมและคืนสต็อกสินค้า"
+                                >
+                                  <Trash2 size={14} /> ลบ
+                                </button>
+                              )}
                               {isTopup && (
                                 <button
                                   type="button"
@@ -1089,7 +1217,7 @@ export default function AdminPage() {
 
       {qr && <div className="card qr-panel"><h2>▦ QR นักเรียน</h2><img src={qr} alt="Student QR" /><button className="btn" onClick={() => setQr('')}>ปิด QR</button></div>}
 
-      {edit && <div className="card admin-section"><div className="section-heading"><h2>✎ แก้ไขนักเรียน</h2><button className="btn" onClick={() => setEdit(null)}>ยกเลิก</button></div><div className="row admin-edit-row"><input className="input" value={editName} onChange={(event) => setEditName(event.target.value)} placeholder="ชื่อ" /><input className="input" value={edit.student_code} placeholder="รหัสอัตโนมัติ" readOnly /><select className="input student-group-select" value={editGroup} onChange={(event) => setEditGroup(event.target.value)} aria-label="กลุ่มนักเรียน"><option value="เด็กเล็ก">เด็กเล็ก</option><option value="เด็กโต">เด็กโต</option></select><label className="btn upload-btn">📷 เปลี่ยนรูป<input type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0] || null; setEditPhoto(file); setEditPhotoPreview(file ? URL.createObjectURL(file) : edit.photo_url || '') }} /></label><button className="btn" onClick={() => { setRemovePhoto(true); setEditPhoto(null); setEditPhotoPreview('') }}>ลบรูป</button><button className="btn primary" onClick={saveEdit}>บันทึก</button></div>{editPhotoPreview && <img src={editPhotoPreview} alt="preview" className="admin-preview" />}</div>}
+      {edit && <div className="admin-edit-modal-backdrop" role="presentation" onClick={() => setEdit(null)}><section className="admin-edit-modal card admin-section" role="dialog" aria-modal="true" aria-labelledby="admin-edit-modal-title" onClick={(event) => event.stopPropagation()}><div className="section-heading"><div><h2 id="admin-edit-modal-title">✎ แก้ไขนักเรียน</h2><p className="muted">แก้ไขข้อมูลและรูปภาพนักเรียน</p></div><button type="button" className="admin-edit-modal-close" onClick={() => setEdit(null)} aria-label="ปิดหน้าต่างแก้ไขนักเรียน" title="ปิด"><X size={20} aria-hidden="true" /></button></div><div className="admin-edit-modal-fields"><label className="admin-edit-field">ชื่อ-นามสกุล<input className="input" value={editName} onChange={(event) => setEditName(event.target.value)} placeholder="ชื่อ-นามสกุลนักเรียน" /></label><label className="admin-edit-field">รหัสนักเรียน<input className="input" value={edit.student_code} placeholder="รหัสอัตโนมัติ" readOnly /></label><label className="admin-edit-field">กลุ่มนักเรียน<select className="input student-group-select" value={editGroup} onChange={(event) => setEditGroup(event.target.value)} aria-label="กลุ่มนักเรียน"><option value="เด็กเล็ก">เด็กเล็ก</option><option value="เด็กโต">เด็กโต</option></select></label><div className="admin-edit-photo-actions"><label className="btn upload-btn">📷 เปลี่ยนรูป<input type="file" accept="image/*" hidden onChange={(event) => { const file = event.target.files?.[0] || null; setEditPhoto(file); setEditPhotoPreview(file ? URL.createObjectURL(file) : edit.photo_url || '') }} /></label><button type="button" className="btn" onClick={() => { setRemovePhoto(true); setEditPhoto(null); setEditPhotoPreview('') }}>ลบรูป</button></div>{editPhotoPreview && <img src={editPhotoPreview} alt="ตัวอย่างรูปนักเรียน" className="admin-preview admin-edit-modal-preview" />}</div><div className="admin-edit-modal-footer"><button type="button" className="btn primary" onClick={saveEdit} disabled={loading}>{loading ? 'กำลังบันทึก…' : 'บันทึกการแก้ไข'}</button></div></section></div>}
 
       {/* Mobile Rich Menu (Bottom Navigation) */}
       <nav className="admin-mobile-menu" aria-label="Admin Mobile Navigation">
@@ -1101,13 +1229,13 @@ export default function AdminPage() {
             window.scrollTo({ top: 0, behavior: 'smooth' })
           }}
         >
-          <span className="admin-menu-icon">🔴</span>
+          <span className="admin-menu-icon"><Activity size={22} strokeWidth={2.4} aria-hidden="true" /></span>
           <b className="admin-menu-label">ธุรกรรม</b>
           <small className="admin-menu-sub">LIVE</small>
         </button>
 
         <Link href="/kiosk" className="admin-menu-item admin-menu-kiosk">
-          <span className="admin-menu-icon">🏪</span>
+          <span className="admin-menu-icon"><Store size={23} strokeWidth={2.4} aria-hidden="true" /></span>
           <b className="admin-menu-label">จุดขาย</b>
           <small className="admin-menu-sub">KIOSK</small>
         </Link>
@@ -1122,7 +1250,7 @@ export default function AdminPage() {
             window.scrollTo({ top: 0, behavior: 'smooth' })
           }}
         >
-          <span className="admin-menu-icon">💰</span>
+          <span className="admin-menu-icon"><Wallet size={22} strokeWidth={2.4} aria-hidden="true" /></span>
           <b className="admin-menu-label">เติมเงิน</b>
           <small className="admin-menu-sub">เลือกนักเรียน</small>
         </button>
@@ -1165,1040 +1293,131 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Top Up Modal */}
-      {topupModalOpen && selected && (
+      {debtApprovalModal && (
         <div
-          className="topup-modal-backdrop"
+          className="snack-debt-approval-backdrop"
           role="presentation"
           onClick={(event) => {
-            if (event.target === event.currentTarget) closeTopupModal()
+            if (event.target === event.currentTarget && !debtActionId) setDebtApprovalModal(null)
           }}
         >
-          <div className="topup-modal-card" role="dialog" aria-modal="true" aria-labelledby="topup-modal-title">
-            <div className="topup-modal-header">
-              <div className="topup-student-profile">
-                {selected.photo_url ? (
-                  <img src={selected.photo_url} alt="" className="topup-modal-avatar" />
-                ) : (
-                  <div className="topup-modal-avatar topup-modal-avatar-placeholder">👤</div>
-                )}
-                <div>
-                  <span className="topup-modal-badge">เติมเงินนักเรียน</span>
-                  <h2 id="topup-modal-title">{selected.full_name}</h2>
-                  <p>{selected.student_code} · {selected.class_name || 'ไม่ระบุชั้น'}</p>
-                </div>
+          <section
+            className="snack-debt-approval-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="snack-debt-approval-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="snack-debt-approval-close"
+              onClick={() => setDebtApprovalModal(null)}
+              disabled={debtActionId !== null}
+              aria-label="ปิดหน้าต่างยืนยัน"
+              title="ปิด"
+            >
+              <X size={20} aria-hidden="true" />
+            </button>
+
+            <div className="snack-debt-approval-hero">
+              <span className="snack-debt-approval-icon"><CheckCircle2 size={34} strokeWidth={2.2} aria-hidden="true" /></span>
+              <span className="snack-debt-approval-eyebrow">SHINE WALLET · REPAYMENT</span>
+              <h2 id="snack-debt-approval-title">ยืนยันรับชำระเงินคืน</h2>
+              <p>ตรวจสอบข้อมูลให้ถูกต้องก่อนบันทึกการชำระเงิน</p>
+            </div>
+
+            <div className="snack-debt-approval-student">
+              <span className="snack-debt-approval-avatar">👤</span>
+              <div>
+                <strong>{debtApprovalModal.student?.full_name || 'ไม่พบชื่อนักเรียน'}</strong>
+                <span>รหัส {debtApprovalModal.student?.student_code || '—'}{debtApprovalModal.student?.class_name ? ` · ${debtApprovalModal.student.class_name}` : ''}</span>
               </div>
-              <button
-                type="button"
-                className="topup-modal-close"
-                onClick={closeTopupModal}
-                disabled={topupLoading}
-                aria-label="ปิดหน้าต่างเติมเงิน"
-              >
-                ×
-              </button>
             </div>
 
-            <div className="topup-modal-balance">
-              <span>ยอดเงินปัจจุบัน</span>
-              <strong>฿{Number(selected.balance).toFixed(2)}</strong>
+            <div className="snack-debt-approval-total">
+              <span>ยอดที่ได้รับชำระ</span>
+              <strong>฿{Number(debtApprovalModal.amount).toFixed(2)}</strong>
             </div>
 
-            <div className="topup-modal-presets">
-              {[10, 15, 20, 30, 40].map((preset) => (
-                <button
-                  type="button"
-                  key={preset}
-                  className={`topup-modal-preset ${Number(topupAmount) === preset ? 'active' : ''}`}
-                  onClick={() => setTopupAmount(String(preset))}
-                  disabled={topupLoading}
-                >
-                  ฿{preset}
-                </button>
+            <div className="snack-debt-approval-items">
+              <div className="snack-debt-approval-items-heading">รายการค่าขนม</div>
+              {(debtApprovalModal.items || []).map((item, index) => (
+                <div className="snack-debt-approval-item" key={`${item.name}-${index}`}>
+                  <span>{item.name} <small>× {item.quantity}</small></span>
+                  <strong>฿{Number(item.subtotal).toFixed(2)}</strong>
+                </div>
               ))}
             </div>
 
-            <label className="topup-modal-label" htmlFor="admin-topup-amount">จำนวนเงินที่ต้องการเติม</label>
-            <div className="topup-modal-amount-wrap">
-              <span>฿</span>
-              <input
-                id="admin-topup-amount"
-                type="number"
-                min="1"
-                step="1"
-                inputMode="numeric"
-                placeholder="0"
-                value={topupAmount}
-                onChange={(event) => setTopupAmount(event.target.value)}
-                disabled={topupLoading}
-                autoFocus
-              />
+            <div className="snack-debt-approval-warning">
+              <CheckCircle2 size={17} aria-hidden="true" />
+              <span>เมื่อยืนยันแล้ว รายการนี้จะเปลี่ยนสถานะเป็น <b>ชำระแล้ว</b> และบันทึกวันเวลารับเงิน</span>
             </div>
 
-            <input
-              className="input topup-modal-input"
-              placeholder="อ้างอิง เช่น เลขสลิป (ถ้ามี)"
-              value={topupReference}
-              onChange={(event) => setTopupReference(event.target.value)}
-              disabled={topupLoading}
-            />
-
-            <input
-              className="input topup-modal-input"
-              placeholder="หมายเหตุ (ถ้ามี)"
-              value={topupNote}
-              onChange={(event) => setTopupNote(event.target.value)}
-              disabled={topupLoading}
-            />
-
-            <div className="topup-modal-actions">
+            <div className="snack-debt-approval-actions">
               <button
                 type="button"
-                className="topup-modal-cancel"
-                onClick={closeTopupModal}
-                disabled={topupLoading}
+                className="snack-debt-approval-cancel"
+                onClick={() => setDebtApprovalModal(null)}
+                disabled={debtActionId !== null}
               >
                 ยกเลิก
               </button>
               <button
                 type="button"
-                className="topup-modal-confirm"
-                onClick={topup}
-                disabled={topupLoading || !topupAmount || Number(topupAmount) <= 0}
+                className="snack-debt-approval-confirm"
+                onClick={() => void approveSnackDebtPayment(debtApprovalModal.id)}
+                disabled={debtActionId !== null}
               >
-                {topupLoading
-                  ? 'กำลังเติมเงิน...'
-                  : `✓ ยืนยันเติม ${topupAmount ? `฿${Number(topupAmount).toFixed(2)}` : 'เงิน'}`}
+                {debtActionId === debtApprovalModal.id ? 'กำลังบันทึก…' : 'ยืนยันรับเงินแล้ว'}
               </button>
             </div>
-          </div>
+          </section>
         </div>
       )}
 
-      {/* Edit Topup Modal */}
-      {editTopup && (
-        <div
-          className="edit-topup-modal-backdrop"
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget && !editTopupLoading) {
-              closeEditTopup()
-            }
-          }}
-        >
-          <div className="edit-topup-modal-card" role="dialog" aria-modal="true">
-            <div className="edit-topup-modal-header">
-              <div>
-                <span className="edit-topup-modal-badge">✏️ แก้ไขรายการเติมเงิน</span>
-                <h2>แก้ไขยอดเติมเงินย้อนหลัง</h2>
-                <p>
-                  {selected?.full_name || 'นักเรียน'} · รายการเมื่อ{' '}
-                  {new Date(editTopup.created_at).toLocaleString('th-TH')}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="topup-modal-close"
-                onClick={closeEditTopup}
-                disabled={editTopupLoading}
-                aria-label="ปิด"
-              >
-                ×
-              </button>
-            </div>
+      <PurchaseDetailsModal
+        transaction={purchaseDetailsTransaction}
+        items={purchaseItems}
+        loading={purchaseDetailsLoading}
+        error={purchaseDetailsError}
+        onClose={() => {
+          setPurchaseDetailsTransaction(null)
+          setPurchaseItems([])
+          setPurchaseDetailsError('')
+        }}
+      />
+
+      <AdminOverlays
+        selected={selected}
+        topupModalOpen={topupModalOpen}
+        topupLoading={topupLoading}
+        topupAmount={topupAmount}
+        topupReference={topupReference}
+        topupNote={topupNote}
+        setTopupAmount={setTopupAmount}
+        setTopupReference={setTopupReference}
+        setTopupNote={setTopupNote}
+        onCloseTopup={closeTopupModal}
+        onTopup={topup}
+        editTopup={editTopup}
+        selectedStudentName={selected?.full_name || ''}
+        editTopupLoading={editTopupLoading}
+        editTopupAmount={editTopupAmount}
+        editTopupReference={editTopupReference}
+        editTopupNote={editTopupNote}
+        setEditTopupAmount={setEditTopupAmount}
+        setEditTopupReference={setEditTopupReference}
+        setEditTopupNote={setEditTopupNote}
+        onCloseEditTopup={closeEditTopup}
+        onSaveEditTopup={saveEditTopup}
+        confirmModal={confirmModal}
+        confirmLoading={confirmLoading}
+        setConfirmModal={setConfirmModal}
+        setConfirmLoading={setConfirmLoading}
+        setMessage={setMessage}
+      />
 
-            <div className="edit-topup-warning">
-              <strong>⚠️ โปรดตรวจสอบจำนวนเงิน</strong>
-              <span>
-                ระบบจะคำนวณยอดคงเหลือใหม่จากรายการนี้และรายการถัดไปโดยอัตโนมัติ
-              </span>
-            </div>
-
-            <label className="topup-modal-label">จำนวนเงินที่ถูกต้อง</label>
-            <div className="topup-modal-amount-wrap">
-              <span>฿</span>
-              <input
-                inputMode="decimal"
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={editTopupAmount}
-                onChange={(event) => setEditTopupAmount(event.target.value)}
-                disabled={editTopupLoading}
-                autoFocus
-              />
-            </div>
-
-            <label className="topup-modal-label">เลขอ้างอิง (ถ้ามี)</label>
-            <input
-              className="input topup-modal-input"
-              placeholder="เช่น เงินสด / ใบเสร็จ / Ref"
-              value={editTopupReference}
-              onChange={(event) => setEditTopupReference(event.target.value)}
-              disabled={editTopupLoading}
-            />
-
-            <label className="topup-modal-label">หมายเหตุ</label>
-            <input
-              className="input topup-modal-input"
-              placeholder="เช่น แก้จาก 100 บาท เป็น 50 บาท"
-              value={editTopupNote}
-              onChange={(event) => setEditTopupNote(event.target.value)}
-              disabled={editTopupLoading}
-            />
-
-            <div className="edit-topup-old-value">
-              <span>ยอดเดิม</span>
-              <strong>฿{Number(editTopup.amount).toFixed(2)}</strong>
-              <span>→</span>
-              <strong>฿{Number(editTopupAmount || 0).toFixed(2)}</strong>
-            </div>
-
-            <div className="topup-modal-actions">
-              <button
-                type="button"
-                className="topup-modal-cancel"
-                onClick={closeEditTopup}
-                disabled={editTopupLoading}
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                className="topup-modal-confirm"
-                onClick={saveEditTopup}
-                disabled={editTopupLoading || editTopupAmount === '' || Number(editTopupAmount) < 0}
-              >
-                {editTopupLoading ? 'กำลังบันทึก...' : '✓ บันทึกการแก้ไข'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirmation Modal */}
-      {confirmModal && (
-        <div
-          className="confirm-modal-backdrop"
-          role="presentation"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !confirmLoading) {
-              setConfirmModal(null)
-            }
-          }}
-        >
-          <div className="confirm-modal-card" role="dialog" aria-modal="true">
-            <div className="confirm-modal-icon-ring">
-              <span>{confirmModal.icon || '⚠️'}</span>
-            </div>
-            <h3 className="confirm-modal-title">{confirmModal.title}</h3>
-            <p className="confirm-modal-message">{confirmModal.message}</p>
-
-            {confirmModal.detail && (
-              <div className="confirm-modal-detail">
-                {confirmModal.detail}
-              </div>
-            )}
-
-            <div className="confirm-modal-actions">
-              <button
-                type="button"
-                className="confirm-modal-btn cancel"
-                onClick={() => setConfirmModal(null)}
-                disabled={confirmLoading}
-              >
-                {confirmModal.cancelText || 'ยกเลิก'}
-              </button>
-              <button
-                type="button"
-                className={`confirm-modal-btn confirm ${confirmModal.danger !== false ? 'danger' : 'primary'}`}
-                onClick={async () => {
-                  setConfirmLoading(true)
-                  try {
-                    await confirmModal.onConfirm()
-                    setConfirmModal(null)
-                  } catch (err: any) {
-                    setMessage(`เกิดข้อผิดพลาด: ${err?.message || String(err)}`)
-                  } finally {
-                    setConfirmLoading(false)
-                  }
-                }}
-                disabled={confirmLoading}
-              >
-                {confirmLoading ? 'กำลังดำเนินการ...' : (confirmModal.confirmText || 'ยืนยัน')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <style jsx>{`
-        .realtime-transactions-panel {
-          overflow: hidden;
-        }
-
-        .realtime-status {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 9px 13px;
-          border-radius: 999px;
-          font-size: 12px;
-          font-weight: 800;
-          white-space: nowrap;
-        }
-
-        .realtime-status.online {
-          background: #ecfdf5;
-          color: #047857;
-        }
-
-        .realtime-status.offline {
-          background: #fff7ed;
-          color: #c2410c;
-        }
-
-        .realtime-dot {
-          width: 9px;
-          height: 9px;
-          border-radius: 50%;
-          background: currentColor;
-          box-shadow: 0 0 0 4px rgba(16, 185, 129, .12);
-        }
-
-        .realtime-error {
-          margin: 14px 0;
-          padding: 12px 14px;
-          border-radius: 14px;
-          background: #fff7ed;
-          color: #9a3412;
-          font-size: 13px;
-          font-weight: 700;
-        }
-
-        .realtime-summary {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
-          margin: 18px 0;
-        }
-
-        .realtime-summary > div {
-          padding: 15px 17px;
-          border: 1px solid #e2e8f0;
-          border-radius: 16px;
-          background: #f8fafc;
-        }
-
-        .realtime-summary span,
-        .realtime-summary b {
-          display: block;
-        }
-
-        .realtime-summary span {
-          color: #64748b;
-          font-size: 12px;
-        }
-
-        .realtime-summary b {
-          margin-top: 4px;
-          color: #172033;
-          font-size: 22px;
-        }
-
-        .realtime-list {
-          display: grid;
-          gap: 10px;
-        }
-
-        .realtime-transaction {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          padding: 14px;
-          border: 1px solid #e2e8f0;
-          border-radius: 18px;
-          background: #fff;
-        }
-
-        .realtime-type-icon {
-          display: grid;
-          place-items: center;
-          width: 48px;
-          height: 48px;
-          flex: 0 0 48px;
-          border-radius: 15px;
-          font-size: 21px;
-          font-weight: 900;
-        }
-
-        .realtime-type-icon.topup {
-          background: #d1fae5;
-          color: #047857;
-        }
-
-        .realtime-type-icon.purchase {
-          background: #ede9fe;
-          color: #6d28d9;
-        }
-
-        .realtime-transaction-main {
-          min-width: 0;
-          flex: 1;
-        }
-
-        .realtime-transaction-title {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-wrap: wrap;
-        }
-
-        .realtime-type-badge {
-          padding: 3px 8px;
-          border-radius: 999px;
-          font-size: 10px;
-          font-weight: 800;
-        }
-
-        .realtime-type-badge.topup {
-          background: #ecfdf5;
-          color: #047857;
-        }
-
-        .realtime-type-badge.purchase {
-          background: #f5f3ff;
-          color: #6d28d9;
-        }
-
-        .realtime-transaction-main small {
-          display: block;
-          margin-top: 4px;
-        }
-
-        .realtime-amount {
-          flex: 0 0 auto;
-          font-size: 18px;
-          font-weight: 900;
-        }
-
-        .realtime-amount.topup {
-          color: #059669;
-        }
-
-        .realtime-amount.purchase {
-          color: #7c3aed;
-        }
-
-        .student-balance.has-balance {
-          color: #16a34a;
-        }
-
-        .student-main-info {
-          min-width: 0;
-        }
-
-        .student-meta,
-        .topup-picker-meta {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 7px;
-          margin-top: 5px;
-        }
-
-        .student-group-select {
-          min-height: 52px;
-          padding: 10px 42px 10px 16px;
-          border: 2px solid #c7d2fe;
-          border-radius: 15px;
-          background-color: #f8faff;
-          color: #312e81;
-          font-family: inherit;
-          font-size: 18px;
-          font-weight: 800;
-          line-height: 1.4;
-          cursor: pointer;
-          transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
-        }
-
-        .student-group-select:focus {
-          border-color: #6366f1;
-          outline: none;
-          background-color: #fff;
-          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14);
-        }
-
-        .student-group-select option {
-          padding: 10px;
-          background: #fff;
-          color: #1e1b4b;
-          font-family: inherit;
-          font-size: 18px;
-          font-weight: 700;
-        }
-
-        .student-group-badge {
-          display: inline-flex;
-          align-items: center;
-          width: fit-content;
-          padding: 3px 9px;
-          border-radius: 999px;
-          font-size: 11px;
-          line-height: 1.5;
-          font-weight: 800;
-          white-space: nowrap;
-        }
-
-        .student-group-badge.group-older {
-          background: #dbeafe;
-          color: #1d4ed8;
-          border: 1px solid #bfdbfe;
-        }
-
-        .student-group-badge.group-younger {
-          background: #ffedd5;
-          color: #c2410c;
-          border: 1px solid #fed7aa;
-        }
-
-        .student-group-badge.group-unknown {
-          background: #f1f5f9;
-          color: #475569;
-          border: 1px solid #e2e8f0;
-        }
-
-        .topup-picker-meta {
-          gap: 8px;
-        }
-
-        .realtime-pagination {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          margin-top: 18px;
-          padding-top: 16px;
-          border-top: 1px solid #e2e8f0;
-        }
-
-        .realtime-pagination-info {
-          color: #64748b;
-          font-size: 12px;
-          font-weight: 700;
-          text-align: center;
-        }
-
-        .realtime-pagination-buttons {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .realtime-pagination-btn,
-        .realtime-pagination-number {
-          min-height: 38px;
-          border: 1px solid #d1d5db;
-          border-radius: 11px;
-          background: #fff;
-          color: #374151;
-          font: inherit;
-          font-size: 12px;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
-        .realtime-pagination-btn {
-          padding: 0 12px;
-        }
-
-        .realtime-pagination-number {
-          width: 38px;
-          padding: 0;
-        }
-
-        .realtime-pagination-pages {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-
-        .realtime-pagination-btn:hover:not(:disabled),
-        .realtime-pagination-number:hover {
-          background: #f3f4f6;
-        }
-
-        .realtime-pagination-number.active {
-          border-color: #4f46e5;
-          background: #4f46e5;
-          color: #fff;
-          box-shadow: 0 4px 10px rgba(79,70,229,.2);
-        }
-
-        .realtime-pagination-btn:disabled {
-          opacity: .4;
-          cursor: not-allowed;
-        }
-
-        @media (max-width: 600px) {
-          .realtime-pagination {
-            flex-direction: column;
-            align-items: stretch;
-          }
-
-          .realtime-pagination-buttons {
-            justify-content: center;
-            flex-wrap: wrap;
-          }
-
-          .realtime-pagination-info {
-            text-align: center;
-          }
-
-          .realtime-summary {
-            grid-template-columns: 1fr;
-          }
-
-          .realtime-transaction {
-            align-items: flex-start;
-          }
-
-          .realtime-amount {
-            margin-left: auto;
-          }
-        }
-
-        .history-panel {
-          scroll-margin-top: 20px;
-        }
-
-        .history-action-cell {
-          text-align: center;
-          white-space: nowrap;
-        }
-
-        .history-edit-topup-btn {
-          min-height: 36px;
-          padding: 7px 11px;
-          border: 1px solid #bfdbfe;
-          border-radius: 10px;
-          background: #eff6ff;
-          color: #1d4ed8;
-          font: inherit;
-          font-size: 12px;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
-        .history-edit-topup-btn:hover {
-          background: #dbeafe;
-          border-color: #93c5fd;
-        }
-
-        .edit-topup-modal-backdrop {
-          position: fixed;
-          inset: 0;
-          z-index: 1250;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-          background: rgba(15, 23, 42, 0.72);
-          backdrop-filter: blur(8px);
-        }
-
-        .edit-topup-modal-card {
-          width: min(100%, 520px);
-          max-height: calc(100vh - 40px);
-          overflow-y: auto;
-          padding: 24px;
-          border: 1px solid #dbeafe;
-          border-radius: 28px;
-          background: #fff;
-          box-shadow: 0 30px 90px rgba(15, 23, 42, 0.3);
-        }
-
-        .edit-topup-modal-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 16px;
-        }
-
-        .edit-topup-modal-badge {
-          display: block;
-          margin-bottom: 5px;
-          color: #2563eb;
-          font-size: 12px;
-          font-weight: 900;
-          letter-spacing: .05em;
-        }
-
-        .edit-topup-modal-header h2 {
-          margin: 0;
-          color: #172033;
-          font-size: 23px;
-        }
-
-        .edit-topup-modal-header p {
-          margin: 6px 0 0;
-          color: #64748b;
-          font-size: 13px;
-        }
-
-        .edit-topup-warning {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-          margin-top: 18px;
-          padding: 14px 16px;
-          border: 1px solid #fde68a;
-          border-radius: 16px;
-          background: #fffbeb;
-          color: #92400e;
-          font-size: 13px;
-        }
-
-        .edit-topup-warning strong {
-          font-size: 14px;
-        }
-
-        .edit-topup-old-value {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          margin-top: 16px;
-          padding: 13px;
-          border-radius: 14px;
-          background: #f8fafc;
-          color: #64748b;
-          font-size: 13px;
-        }
-
-        .edit-topup-old-value strong {
-          color: #172033;
-          font-size: 17px;
-        }
-
-        .topup-picker-backdrop {
-          position: fixed;
-          inset: 0;
-          z-index: 1190;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-          background: rgba(15, 23, 42, 0.68);
-          backdrop-filter: blur(7px);
-        }
-
-        .topup-picker-card {
-          display: flex;
-          flex-direction: column;
-          width: min(100%, 560px);
-          max-height: min(780px, calc(100vh - 40px));
-          padding: 24px;
-          overflow: hidden;
-          border: 1px solid #dbeafe;
-          border-radius: 26px;
-          background: #fff;
-          box-shadow: 0 30px 90px rgba(15, 23, 42, 0.3);
-        }
-
-        .topup-picker-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 14px;
-        }
-
-        .topup-picker-header h2 { margin: 0; color: #172033; font-size: 22px; }
-        .topup-picker-header p { margin: 6px 0 0; color: #64748b; font-size: 13px; }
-        .topup-picker-search { width: 100%; min-height: 48px; margin: 18px 0 12px; flex: 0 0 auto; }
-        .topup-picker-list { display: grid; gap: 8px; overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px 4px 0; }
-
-        .topup-picker-student {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          width: 100%;
-          min-width: 0;
-          padding: 11px 12px;
-          border: 1px solid #e2e8f0;
-          border-radius: 16px;
-          background: #fff;
-          text-align: left;
-          cursor: pointer;
-        }
-
-        .topup-picker-student:hover { border-color: #6ee7b7; background: #f0fdf4; }
-        .topup-picker-avatar { width: 46px; height: 46px; flex: 0 0 46px; border-radius: 14px; object-fit: cover; background: #ede9fe; }
-        .topup-picker-avatar-placeholder { display: grid; place-items: center; font-size: 24px; }
-        .topup-picker-student-info { display: grid; gap: 4px; min-width: 0; flex: 1; }
-        .topup-picker-student-info strong { overflow: hidden; color: #172033; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
-        .topup-picker-student-info small { overflow: hidden; color: #64748b; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-        .topup-picker-balance { flex: 0 0 auto; color: #059669; font-size: 13px; font-weight: 900; }
-        .topup-picker-arrow { color: #94a3b8; font-size: 24px; line-height: 1; }
-        .topup-picker-empty { padding: 32px 12px; color: #64748b; text-align: center; font-size: 14px; }
-
-        @media (max-width: 600px) {
-          .topup-picker-backdrop { align-items: flex-end; padding: 0; }
-          .topup-picker-card { width: 100%; max-height: 92vh; padding: 20px 18px calc(20px + env(safe-area-inset-bottom)); border-radius: 28px 28px 0 0; }
-        }
-
-        .topup-modal-backdrop {
-          position: fixed;
-          inset: 0;
-          z-index: 1200;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 20px;
-          background: rgba(15, 23, 42, 0.68);
-          backdrop-filter: blur(7px);
-        }
-
-        .topup-modal-card {
-          width: min(100%, 500px);
-          max-height: calc(100vh - 40px);
-          overflow-y: auto;
-          padding: 24px;
-          border: 1px solid rgba(226, 232, 240, 0.9);
-          border-radius: 28px;
-          background: #ffffff;
-          box-shadow: 0 30px 90px rgba(15, 23, 42, 0.3);
-        }
-
-        .topup-modal-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 16px;
-        }
-
-        .topup-student-profile {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          min-width: 0;
-        }
-
-        .topup-modal-avatar {
-          width: 64px;
-          height: 64px;
-          flex: 0 0 64px;
-          overflow: hidden;
-          border-radius: 20px;
-          object-fit: cover;
-          background: #ede9fe;
-        }
-
-        .topup-modal-avatar-placeholder {
-          display: grid;
-          place-items: center;
-          font-size: 30px;
-        }
-
-        .topup-modal-badge {
-          display: block;
-          margin-bottom: 3px;
-          color: #059669;
-          font-size: 12px;
-          font-weight: 800;
-          letter-spacing: .08em;
-        }
-
-        .topup-modal-header h2 {
-          margin: 0;
-          color: #172033;
-          font-size: 23px;
-          line-height: 1.2;
-        }
-
-        .topup-modal-header p {
-          margin: 5px 0 0;
-          color: #64748b;
-          font-size: 13px;
-        }
-
-        .topup-modal-close {
-          width: 42px;
-          height: 42px;
-          flex: 0 0 42px;
-          border: 0;
-          border-radius: 50%;
-          background: #f1f5f9;
-          color: #475569;
-          font-size: 28px;
-          line-height: 1;
-          cursor: pointer;
-        }
-
-        .topup-modal-close:disabled {
-          opacity: .5;
-          cursor: not-allowed;
-        }
-
-        .topup-modal-balance {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-top: 20px;
-          padding: 16px 18px;
-          border-radius: 18px;
-          background: #ecfdf5;
-          color: #047857;
-        }
-
-        .topup-modal-balance span {
-          font-size: 14px;
-          font-weight: 700;
-        }
-
-        .topup-modal-balance strong {
-          font-size: 24px;
-        }
-
-        .topup-modal-presets {
-          display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          gap: 8px;
-          margin-top: 16px;
-        }
-
-        .topup-modal-preset {
-          min-height: 44px;
-          border: 1px solid #dbe4ef;
-          border-radius: 13px;
-          background: #f8fafc;
-          color: #334155;
-          font: inherit;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
-        .topup-modal-preset.active {
-          border-color: #10b981;
-          background: #d1fae5;
-          color: #047857;
-        }
-
-        .topup-modal-label {
-          display: block;
-          margin-top: 18px;
-          margin-bottom: 8px;
-          color: #334155;
-          font-size: 14px;
-          font-weight: 800;
-        }
-
-        .topup-modal-amount-wrap {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 4px 16px;
-          border: 2px solid #dbeafe;
-          border-radius: 18px;
-          background: #fff;
-        }
-
-        .topup-modal-amount-wrap:focus-within {
-          border-color: #10b981;
-          box-shadow: 0 0 0 4px rgba(16, 185, 129, .12);
-        }
-
-        .topup-modal-amount-wrap > span {
-          color: #059669;
-          font-size: 25px;
-          font-weight: 900;
-        }
-
-        .topup-modal-amount-wrap input {
-          width: 100%;
-          min-width: 0;
-          padding: 10px 0;
-          border: 0;
-          outline: 0;
-          background: transparent;
-          color: #172033;
-          font: inherit;
-          font-size: 30px;
-          font-weight: 900;
-        }
-
-        .topup-modal-input {
-          width: 100%;
-          margin-top: 10px;
-        }
-
-        .topup-modal-actions {
-          display: grid;
-          grid-template-columns: .8fr 1.2fr;
-          gap: 10px;
-          margin-top: 18px;
-        }
-
-        .topup-modal-actions button {
-          min-height: 54px;
-          border: 0;
-          border-radius: 16px;
-          padding: 12px 16px;
-          font: inherit;
-          font-weight: 800;
-          cursor: pointer;
-        }
-
-        .topup-modal-cancel {
-          background: #f1f5f9;
-          color: #475569;
-        }
-
-        .topup-modal-confirm {
-          background: #059669;
-          color: #fff;
-          box-shadow: 0 10px 24px rgba(5, 150, 105, .22);
-        }
-
-        .topup-modal-actions button:disabled {
-          opacity: .55;
-          cursor: not-allowed;
-        }
-
-        @media (max-width: 600px) {
-          .edit-topup-modal-backdrop {
-            align-items: flex-end;
-            padding: 0;
-          }
-
-          .edit-topup-modal-card {
-            width: 100%;
-            max-height: 94vh;
-            border-radius: 28px 28px 0 0;
-            padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
-          }
-
-          .topup-modal-backdrop {
-            align-items: flex-end;
-            padding: 0;
-          }
-
-          .topup-modal-card {
-            width: 100%;
-            max-height: 94vh;
-            border-radius: 28px 28px 0 0;
-            padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
-          }
-
-          .topup-modal-presets {
-            grid-template-columns: repeat(3, 1fr);
-          }
-
-          .topup-modal-actions {
-            grid-template-columns: 1fr;
-          }
-        }
-      `}</style>
     </main>
   )
 }

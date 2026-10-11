@@ -1,0 +1,1824 @@
+main.admin-page-root .realtime-transactions-panel {
+          overflow: hidden;
+        }
+
+main.admin-page-root .realtime-status {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 9px 13px;
+          border-radius: 999px;
+          font-size: 12px;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+main.admin-page-root .realtime-status.online {
+          background: #ecfdf5;
+          color: #047857;
+        }
+
+main.admin-page-root .realtime-status.offline {
+          background: #fff7ed;
+          color: #c2410c;
+        }
+
+main.admin-page-root .realtime-dot {
+          width: 9px;
+          height: 9px;
+          border-radius: 50%;
+          background: currentColor;
+          box-shadow: 0 0 0 4px rgba(16, 185, 129, .12);
+        }
+
+main.admin-page-root .realtime-error {
+          margin: 14px 0;
+          padding: 12px 14px;
+          border-radius: 14px;
+          background: #fff7ed;
+          color: #9a3412;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+main.admin-page-root .realtime-summary {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+          margin: 18px 0;
+        }
+
+main.admin-page-root .realtime-summary > div {
+          padding: 15px 17px;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          background: #f8fafc;
+        }
+
+main.admin-page-root .realtime-summary span,
+main.admin-page-root .realtime-summary b {
+          display: block;
+        }
+
+main.admin-page-root .realtime-summary span {
+          color: #64748b;
+          font-size: 12px;
+        }
+
+main.admin-page-root .realtime-summary b {
+          margin-top: 4px;
+          color: #172033;
+          font-size: 22px;
+        }
+
+main.admin-page-root .realtime-list {
+          display: grid;
+          gap: 10px;
+        }
+
+main.admin-page-root .realtime-transaction {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 14px;
+          border: 1px solid #e2e8f0;
+          border-radius: 18px;
+          background: #fff;
+        }
+
+main.admin-page-root .realtime-type-icon {
+          display: grid;
+          place-items: center;
+          width: 48px;
+          height: 48px;
+          flex: 0 0 48px;
+          border-radius: 15px;
+          font-size: 21px;
+          font-weight: 900;
+        }
+
+main.admin-page-root .realtime-type-icon.topup {
+          background: #d1fae5;
+          color: #047857;
+        }
+
+main.admin-page-root .realtime-type-icon.purchase {
+          background: #ede9fe;
+          color: #6d28d9;
+        }
+
+main.admin-page-root .realtime-type-icon.repayment {
+          background: #dcfce7;
+          color: #15803d;
+        }
+
+main.admin-page-root .realtime-transaction-main {
+          min-width: 0;
+          flex: 1;
+        }
+
+main.admin-page-root .realtime-transaction-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+main.admin-page-root .realtime-type-badge {
+          padding: 3px 8px;
+          border-radius: 999px;
+          font-size: 10px;
+          font-weight: 800;
+        }
+
+main.admin-page-root .realtime-type-badge.topup {
+          background: #ecfdf5;
+          color: #047857;
+        }
+
+main.admin-page-root .realtime-type-badge.purchase {
+          background: #f5f3ff;
+          color: #6d28d9;
+        }
+
+main.admin-page-root .realtime-type-badge.repayment {
+          background: #dcfce7;
+          color: #166534;
+        }
+
+main.admin-page-root .realtime-transaction-main small {
+          display: block;
+          margin-top: 4px;
+        }
+
+main.admin-page-root .realtime-amount {
+          flex: 0 0 auto;
+          font-size: 18px;
+          font-weight: 900;
+        }
+
+main.admin-page-root .realtime-amount.topup {
+          color: #059669;
+        }
+
+main.admin-page-root .realtime-amount.purchase {
+          color: #7c3aed;
+        }
+
+main.admin-page-root .realtime-amount.repayment {
+          color: #15803d;
+        }
+
+main.admin-page-root .student-balance.has-balance {
+          color: #16a34a;
+        }
+
+main.admin-page-root .student-main-info {
+          min-width: 0;
+        }
+
+main.admin-page-root .student-meta,
+main.admin-page-root .topup-picker-meta {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 7px;
+          margin-top: 5px;
+        }
+
+main.admin-page-root .student-group-select {
+          min-height: 52px;
+          padding: 10px 42px 10px 16px;
+          border: 2px solid #c7d2fe;
+          border-radius: 15px;
+          background-color: #f8faff;
+          color: #312e81;
+          font-family: inherit;
+          font-size: 18px;
+          font-weight: 800;
+          line-height: 1.4;
+          cursor: pointer;
+          transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+        }
+
+main.admin-page-root .student-group-select:focus {
+          border-color: #6366f1;
+          outline: none;
+          background-color: #fff;
+          box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14);
+        }
+
+main.admin-page-root .student-group-select option {
+          padding: 10px;
+          background: #fff;
+          color: #1e1b4b;
+          font-family: inherit;
+          font-size: 18px;
+          font-weight: 700;
+        }
+
+main.admin-page-root .student-group-badge {
+          display: inline-flex;
+          align-items: center;
+          width: fit-content;
+          padding: 3px 9px;
+          border-radius: 999px;
+          font-size: 11px;
+          line-height: 1.5;
+          font-weight: 800;
+          white-space: nowrap;
+        }
+
+main.admin-page-root .student-group-badge.group-older {
+          background: #dbeafe;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
+        }
+
+main.admin-page-root .student-group-badge.group-younger {
+          background: #ffedd5;
+          color: #c2410c;
+          border: 1px solid #fed7aa;
+        }
+
+main.admin-page-root .student-group-badge.group-unknown {
+          background: #f1f5f9;
+          color: #475569;
+          border: 1px solid #e2e8f0;
+        }
+
+main.admin-page-root .topup-picker-meta {
+          gap: 8px;
+        }
+
+main.admin-page-root .realtime-pagination {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          margin-top: 18px;
+          padding-top: 16px;
+          border-top: 1px solid #e2e8f0;
+        }
+
+main.admin-page-root .realtime-pagination-info {
+          color: #64748b;
+          font-size: 12px;
+          font-weight: 700;
+          text-align: center;
+        }
+
+main.admin-page-root .realtime-pagination-buttons {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+main.admin-page-root .realtime-pagination-btn,
+main.admin-page-root .realtime-pagination-number {
+          min-height: 38px;
+          border: 1px solid #d1d5db;
+          border-radius: 11px;
+          background: #fff;
+          color: #374151;
+          font: inherit;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+main.admin-page-root .realtime-pagination-btn {
+          padding: 0 12px;
+        }
+
+main.admin-page-root .realtime-pagination-number {
+          width: 38px;
+          padding: 0;
+        }
+
+main.admin-page-root .realtime-pagination-pages {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+main.admin-page-root .realtime-pagination-btn:hover:not(:disabled),
+main.admin-page-root .realtime-pagination-number:hover {
+          background: #f3f4f6;
+        }
+
+main.admin-page-root .realtime-pagination-number.active {
+          border-color: #4f46e5;
+          background: #4f46e5;
+          color: #fff;
+          box-shadow: 0 4px 10px rgba(79,70,229,.2);
+        }
+
+main.admin-page-root .realtime-pagination-btn:disabled {
+          opacity: .4;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 600px) {main.admin-page-root .realtime-pagination {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+main.admin-page-root .realtime-pagination-buttons {
+            justify-content: center;
+            flex-wrap: wrap;
+          }
+
+main.admin-page-root .realtime-pagination-info {
+            text-align: center;
+          }
+
+main.admin-page-root .realtime-summary {
+            grid-template-columns: 1fr;
+          }
+
+main.admin-page-root .realtime-transaction {
+            align-items: flex-start;
+          }
+
+main.admin-page-root .realtime-amount {
+            margin-left: auto;
+          }
+        }
+
+main.admin-page-root .history-panel {
+          scroll-margin-top: 20px;
+        }
+
+main.admin-page-root .history-action-cell {
+          text-align: center;
+          white-space: nowrap;
+        }
+
+main.admin-page-root .history-edit-topup-btn {
+          min-height: 36px;
+          padding: 7px 11px;
+          border: 1px solid #bfdbfe;
+          border-radius: 10px;
+          background: #eff6ff;
+          color: #1d4ed8;
+          font: inherit;
+          font-size: 12px;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+main.admin-page-root .history-edit-topup-btn:hover {
+          background: #dbeafe;
+          border-color: #93c5fd;
+        }
+
+main.admin-page-root .edit-topup-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1250;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(15, 23, 42, 0.72);
+          backdrop-filter: blur(8px);
+        }
+
+main.admin-page-root .edit-topup-modal-card {
+          width: min(100%, 520px);
+          max-height: calc(100vh - 40px);
+          overflow-y: auto;
+          padding: 24px;
+          border: 1px solid #dbeafe;
+          border-radius: 28px;
+          background: #fff;
+          box-shadow: 0 30px 90px rgba(15, 23, 42, 0.3);
+        }
+
+main.admin-page-root .edit-topup-modal-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+main.admin-page-root .edit-topup-modal-badge {
+          display: block;
+          margin-bottom: 5px;
+          color: #2563eb;
+          font-size: 12px;
+          font-weight: 900;
+          letter-spacing: .05em;
+        }
+
+main.admin-page-root .edit-topup-modal-header h2 {
+          margin: 0;
+          color: #172033;
+          font-size: 23px;
+        }
+
+main.admin-page-root .edit-topup-modal-header p {
+          margin: 6px 0 0;
+          color: #64748b;
+          font-size: 13px;
+        }
+
+main.admin-page-root .edit-topup-warning {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          margin-top: 18px;
+          padding: 14px 16px;
+          border: 1px solid #fde68a;
+          border-radius: 16px;
+          background: #fffbeb;
+          color: #92400e;
+          font-size: 13px;
+        }
+
+main.admin-page-root .edit-topup-warning strong {
+          font-size: 14px;
+        }
+
+main.admin-page-root .edit-topup-old-value {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          margin-top: 16px;
+          padding: 13px;
+          border-radius: 14px;
+          background: #f8fafc;
+          color: #64748b;
+          font-size: 13px;
+        }
+
+main.admin-page-root .edit-topup-old-value strong {
+          color: #172033;
+          font-size: 17px;
+        }
+
+main.admin-page-root .topup-picker-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1190;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(15, 23, 42, 0.68);
+          backdrop-filter: blur(7px);
+        }
+
+main.admin-page-root .topup-picker-card {
+          display: flex;
+          flex-direction: column;
+          width: min(100%, 560px);
+          max-height: min(780px, calc(100vh - 40px));
+          padding: 24px;
+          overflow: hidden;
+          border: 1px solid #dbeafe;
+          border-radius: 26px;
+          background: #fff;
+          box-shadow: 0 30px 90px rgba(15, 23, 42, 0.3);
+        }
+
+main.admin-page-root .topup-picker-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 14px;
+        }
+
+main.admin-page-root .topup-picker-header h2 { margin: 0; color: #172033; font-size: 22px; }
+
+main.admin-page-root .topup-picker-header p { margin: 6px 0 0; color: #64748b; font-size: 13px; }
+
+main.admin-page-root .topup-picker-search { width: 100%; min-height: 48px; margin: 18px 0 12px; flex: 0 0 auto; }
+
+main.admin-page-root .topup-picker-list { display: grid; gap: 8px; overflow-y: auto; overscroll-behavior: contain; padding: 2px 4px 4px 0; }
+
+main.admin-page-root .topup-picker-student {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          min-width: 0;
+          padding: 11px 12px;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          background: #fff;
+          text-align: left;
+          cursor: pointer;
+        }
+
+main.admin-page-root .topup-picker-student:hover { border-color: #6ee7b7; background: #f0fdf4; }
+
+main.admin-page-root .topup-picker-avatar { width: 46px; height: 46px; flex: 0 0 46px; border-radius: 14px; object-fit: cover; background: #ede9fe; }
+
+main.admin-page-root .topup-picker-avatar-placeholder { display: grid; place-items: center; font-size: 24px; }
+
+main.admin-page-root .topup-picker-student-info { display: grid; gap: 4px; min-width: 0; flex: 1; }
+
+main.admin-page-root .topup-picker-student-info strong { overflow: hidden; color: #172033; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+
+main.admin-page-root .topup-picker-student-info small { overflow: hidden; color: #64748b; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+
+main.admin-page-root .topup-picker-balance { flex: 0 0 auto; color: #059669; font-size: 13px; font-weight: 900; }
+
+main.admin-page-root .topup-picker-arrow { color: #94a3b8; font-size: 24px; line-height: 1; }
+
+main.admin-page-root .topup-picker-empty { padding: 32px 12px; color: #64748b; text-align: center; font-size: 14px; }
+
+        @media (max-width: 600px) {main.admin-page-root .topup-picker-backdrop { align-items: flex-end; padding: 0; }
+
+main.admin-page-root .topup-picker-card { width: 100%; max-height: 92vh; padding: 20px 18px calc(20px + env(safe-area-inset-bottom)); border-radius: 28px 28px 0 0; }
+        }
+
+main.admin-page-root .topup-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 1200;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: rgba(15, 23, 42, 0.68);
+          backdrop-filter: blur(7px);
+        }
+
+main.admin-page-root .topup-modal-card {
+          width: min(100%, 500px);
+          max-height: calc(100vh - 40px);
+          overflow-y: auto;
+          padding: 24px;
+          border: 1px solid rgba(226, 232, 240, 0.9);
+          border-radius: 28px;
+          background: #ffffff;
+          box-shadow: 0 30px 90px rgba(15, 23, 42, 0.3);
+        }
+
+main.admin-page-root .topup-modal-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+main.admin-page-root .topup-student-profile {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          min-width: 0;
+        }
+
+main.admin-page-root .topup-modal-avatar {
+          width: 64px;
+          height: 64px;
+          flex: 0 0 64px;
+          overflow: hidden;
+          border-radius: 20px;
+          object-fit: cover;
+          background: #ede9fe;
+        }
+
+main.admin-page-root .topup-modal-avatar-placeholder {
+          display: grid;
+          place-items: center;
+          font-size: 30px;
+        }
+
+main.admin-page-root .topup-modal-badge {
+          display: block;
+          margin-bottom: 3px;
+          color: #059669;
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: .08em;
+        }
+
+main.admin-page-root .topup-modal-header h2 {
+          margin: 0;
+          color: #172033;
+          font-size: 23px;
+          line-height: 1.2;
+        }
+
+main.admin-page-root .topup-modal-header p {
+          margin: 5px 0 0;
+          color: #64748b;
+          font-size: 13px;
+        }
+
+main.admin-page-root .topup-modal-close {
+          width: 42px;
+          height: 42px;
+          flex: 0 0 42px;
+          border: 0;
+          border-radius: 50%;
+          background: #f1f5f9;
+          color: #475569;
+          font-size: 28px;
+          line-height: 1;
+          cursor: pointer;
+        }
+
+main.admin-page-root .topup-modal-close:disabled {
+          opacity: .5;
+          cursor: not-allowed;
+        }
+
+main.admin-page-root .topup-modal-balance {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-top: 20px;
+          padding: 16px 18px;
+          border-radius: 18px;
+          background: #ecfdf5;
+          color: #047857;
+        }
+
+main.admin-page-root .topup-modal-balance span {
+          font-size: 14px;
+          font-weight: 700;
+        }
+
+main.admin-page-root .topup-modal-balance strong {
+          font-size: 24px;
+        }
+
+main.admin-page-root .topup-modal-presets {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 8px;
+          margin-top: 16px;
+        }
+
+main.admin-page-root .topup-modal-preset {
+          min-height: 44px;
+          border: 1px solid #dbe4ef;
+          border-radius: 13px;
+          background: #f8fafc;
+          color: #334155;
+          font: inherit;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+main.admin-page-root .topup-modal-preset.active {
+          border-color: #10b981;
+          background: #d1fae5;
+          color: #047857;
+        }
+
+main.admin-page-root .topup-modal-label {
+          display: block;
+          margin-top: 18px;
+          margin-bottom: 8px;
+          color: #334155;
+          font-size: 14px;
+          font-weight: 800;
+        }
+
+main.admin-page-root .topup-modal-amount-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 4px 16px;
+          border: 2px solid #dbeafe;
+          border-radius: 18px;
+          background: #fff;
+        }
+
+main.admin-page-root .topup-modal-amount-wrap:focus-within {
+          border-color: #10b981;
+          box-shadow: 0 0 0 4px rgba(16, 185, 129, .12);
+        }
+
+main.admin-page-root .topup-modal-amount-wrap > span {
+          color: #059669;
+          font-size: 25px;
+          font-weight: 900;
+        }
+
+main.admin-page-root .topup-modal-amount-wrap input {
+          width: 100%;
+          min-width: 0;
+          padding: 10px 0;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: #172033;
+          font: inherit;
+          font-size: 30px;
+          font-weight: 900;
+        }
+
+main.admin-page-root .topup-modal-input {
+          width: 100%;
+          margin-top: 10px;
+        }
+
+main.admin-page-root .topup-modal-actions {
+          display: grid;
+          grid-template-columns: .8fr 1.2fr;
+          gap: 10px;
+          margin-top: 18px;
+        }
+
+main.admin-page-root .topup-modal-actions button {
+          min-height: 54px;
+          border: 0;
+          border-radius: 16px;
+          padding: 12px 16px;
+          font: inherit;
+          font-weight: 800;
+          cursor: pointer;
+        }
+
+main.admin-page-root .topup-modal-cancel {
+          background: #f1f5f9;
+          color: #475569;
+        }
+
+main.admin-page-root .topup-modal-confirm {
+          background: #059669;
+          color: #fff;
+          box-shadow: 0 10px 24px rgba(5, 150, 105, .22);
+        }
+
+main.admin-page-root .topup-modal-actions button:disabled {
+          opacity: .55;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 600px) {main.admin-page-root .edit-topup-modal-backdrop {
+            align-items: flex-end;
+            padding: 0;
+          }
+
+main.admin-page-root .edit-topup-modal-card {
+            width: 100%;
+            max-height: 94vh;
+            border-radius: 28px 28px 0 0;
+            padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+          }
+
+main.admin-page-root .topup-modal-backdrop {
+            align-items: flex-end;
+            padding: 0;
+          }
+
+main.admin-page-root .topup-modal-card {
+            width: 100%;
+            max-height: 94vh;
+            border-radius: 28px 28px 0 0;
+            padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+          }
+
+main.admin-page-root .topup-modal-presets {
+            grid-template-columns: repeat(3, 1fr);
+          }
+
+main.admin-page-root .topup-modal-actions {
+            grid-template-columns: 1fr;
+          }
+        }
+
+/* Purchase details modal */
+main.admin-page-root .history-view-purchase-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 11px;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #4338ca;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+main.admin-page-root .history-view-purchase-btn:hover {
+  background: #e0e7ff;
+  transform: translateY(-1px);
+}
+main.admin-page-root .purchase-details-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgb(15 23 42 / 55%);
+  backdrop-filter: blur(5px);
+}
+main.admin-page-root .purchase-details-modal {
+  width: min(100%, 540px);
+  max-height: min(82vh, 760px);
+  overflow: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 24px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgb(15 23 42 / 24%);
+}
+main.admin-page-root .purchase-details-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+main.admin-page-root .purchase-details-heading-icon {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  place-items: center;
+  border-radius: 15px;
+  background: #eef2ff;
+  color: #4f46e5;
+}
+main.admin-page-root .purchase-details-header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 19px;
+  font-weight: 800;
+}
+main.admin-page-root .purchase-details-header p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
+main.admin-page-root .purchase-details-close {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  margin-left: auto;
+  place-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #475569;
+  cursor: pointer;
+}
+main.admin-page-root .purchase-details-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  border-radius: 16px;
+  padding: 15px 17px;
+  background: linear-gradient(135deg, #eef2ff, #ecfeff);
+  color: #334155;
+}
+main.admin-page-root .purchase-details-summary strong {
+  color: #4338ca;
+  font-size: 23px;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+}
+main.admin-page-root .purchase-details-items {
+  display: grid;
+  gap: 9px;
+}
+main.admin-page-root .purchase-details-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px;
+}
+main.admin-page-root .purchase-details-item-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #6366f1;
+}
+main.admin-page-root .purchase-details-item-main {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+}
+main.admin-page-root .purchase-details-item-main strong {
+  overflow-wrap: anywhere;
+  color: #1e293b;
+  font-size: 14px;
+}
+main.admin-page-root .purchase-details-item-main span {
+  color: #64748b;
+  font-size: 12px;
+}
+main.admin-page-root .purchase-details-item > b {
+  flex: 0 0 auto;
+  color: #0f766e;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+main.admin-page-root .purchase-details-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  border-top: 1px dashed #cbd5e1;
+  padding: 16px 4px 2px;
+  color: #334155;
+  font-weight: 700;
+}
+main.admin-page-root .purchase-details-total strong {
+  color: #0f766e;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+main.admin-page-root .purchase-details-state,
+main.admin-page-root .purchase-details-error {
+  border-radius: 14px;
+  padding: 22px 16px;
+  text-align: center;
+  color: #64748b;
+  background: #f8fafc;
+}
+main.admin-page-root .purchase-details-error {
+  color: #b91c1c;
+  background: #fef2f2;
+}
+main.admin-page-root .purchase-details-reference {
+  margin-top: 18px;
+  overflow-wrap: anywhere;
+  color: #94a3b8;
+  font-size: 10px;
+}
+@media (max-width: 600px) {
+  main.admin-page-root .purchase-details-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  main.admin-page-root .purchase-details-modal {
+    width: 100%;
+    max-height: 88vh;
+    border-radius: 24px 24px 0 0;
+    padding: 20px 16px calc(22px + env(safe-area-inset-bottom));
+  }
+  main.admin-page-root .purchase-details-header h2 {
+    font-size: 17px;
+  }
+}
+
+/* Student list responsive layout */
+main.admin-page-root .student-list {
+  display: grid;
+  gap: 12px;
+}
+main.admin-page-root .student-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px 18px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgb(15 23 42 / 3%);
+  min-width: 0;
+}
+main.admin-page-root .student-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+main.admin-page-root .student-main-info {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+main.admin-page-root .student-main-info > b {
+  display: block;
+  color: #172033;
+  font-size: 15px;
+  line-height: 1.35;
+}
+main.admin-page-root .student-avatar-link {
+  display: block;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  line-height: 0;
+}
+main.admin-page-root .student-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+main.admin-page-root .student-avatar-placeholder {
+  display: grid;
+  place-items: center;
+  background: #f1f5f9;
+  font-size: 22px;
+}
+main.admin-page-root .student-balance {
+  justify-self: end;
+  color: #64748b;
+  font-size: 16px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+main.admin-page-root .student-actions {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+main.admin-page-root .student-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 11px;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+@media (max-width: 800px) {
+  main.admin-page-root .student-row {
+    gap: 12px;
+    padding: 13px;
+    border-radius: 16px;
+  }
+  main.admin-page-root .student-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+  main.admin-page-root .student-actions .btn {
+    min-height: 39px;
+    padding: 8px 5px;
+    gap: 5px;
+    font-size: 11px;
+  }
+}
+@media (max-width: 420px) {
+  main.admin-page-root .student-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 11px 8px;
+    padding: 11px;
+  }
+  main.admin-page-root .student-main {
+    gap: 9px;
+  }
+  main.admin-page-root .student-avatar {
+    width: 42px;
+    height: 42px;
+  }
+  main.admin-page-root .student-main-info > b {
+    font-size: 13px;
+  }
+  main.admin-page-root .student-meta {
+    gap: 5px;
+    font-size: 11px;
+  }
+  main.admin-page-root .student-balance {
+    font-size: 14px;
+  }
+  main.admin-page-root .student-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+  main.admin-page-root .student-actions .btn {
+    min-height: 37px;
+    padding: 7px 3px;
+    gap: 4px;
+    border-radius: 9px;
+    font-size: 10px;
+  }
+  main.admin-page-root .student-actions .btn svg {
+    width: 13px;
+    height: 13px;
+    flex: 0 0 auto;
+  }
+}
+@media (max-width: 350px) {
+  main.admin-page-root .student-row {
+    padding: 9px;
+  }
+  main.admin-page-root .student-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  main.admin-page-root .student-actions .btn {
+    font-size: 11px;
+  }
+  main.admin-page-root .student-actions .btn:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Larger student portraits */
+main.admin-page-root .student-main {
+  gap: 16px;
+}
+main.admin-page-root .student-avatar-link {
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 12%);
+}
+main.admin-page-root .student-avatar {
+  width: 82px;
+  height: 82px;
+  border-radius: 20px;
+  object-fit: cover;
+}
+main.admin-page-root .student-avatar-placeholder {
+  font-size: 34px;
+}
+@media (max-width: 800px) {
+  main.admin-page-root .student-main {
+    gap: 13px;
+  }
+  main.admin-page-root .student-avatar {
+    width: 72px;
+    height: 72px;
+  }
+  main.admin-page-root .student-avatar-placeholder {
+    font-size: 30px;
+  }
+}
+@media (max-width: 420px) {
+  main.admin-page-root .student-main {
+    gap: 10px;
+  }
+  main.admin-page-root .student-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 17px;
+  }
+  main.admin-page-root .student-avatar-placeholder {
+    font-size: 27px;
+  }
+}
+
+/* Admin student edit modal */
+main.admin-page-root .admin-edit-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 24px;
+  background: rgba(15, 23, 42, .58);
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  animation: adminEditBackdropIn .16s ease-out;
+}
+main.admin-page-root .admin-edit-modal {
+  width: min(100%, 560px);
+  max-height: min(86vh, 780px);
+  overflow-y: auto;
+  margin: auto;
+  padding: 24px;
+  border: 1px solid rgba(226, 232, 240, .9);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, .28);
+  animation: adminEditModalIn .2s ease-out;
+}
+main.admin-page-root .admin-edit-modal .section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+main.admin-page-root .admin-edit-modal .section-heading h2 {
+  margin: 0 0 5px;
+  font-size: 22px;
+}
+main.admin-page-root .admin-edit-modal .section-heading p {
+  margin: 0;
+  font-size: 13px;
+}
+main.admin-page-root .admin-edit-modal-fields {
+  display: grid;
+  gap: 16px;
+}
+main.admin-page-root .admin-edit-field {
+  display: grid;
+  gap: 7px;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 750;
+}
+main.admin-page-root .admin-edit-field .input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+main.admin-page-root .admin-edit-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+main.admin-page-root .admin-edit-modal-preview {
+  display: block;
+  width: 112px;
+  height: 112px;
+  margin: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  object-fit: cover;
+}
+main.admin-page-root .admin-edit-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #eef2f7;
+}
+main.admin-page-root .admin-edit-modal-footer .btn {
+  min-height: 43px;
+  padding: 10px 16px;
+}
+@keyframes adminEditBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes adminEditModalIn {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (max-width: 600px) {
+  main.admin-page-root .admin-edit-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  main.admin-page-root .admin-edit-modal {
+    width: 100%;
+    max-height: 90dvh;
+    padding: 22px 17px calc(20px + env(safe-area-inset-bottom));
+    border-radius: 24px 24px 0 0;
+  }
+  main.admin-page-root .admin-edit-modal .section-heading h2 {
+    font-size: 19px;
+  }
+  main.admin-page-root .admin-edit-modal-footer {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+  }
+  main.admin-page-root .admin-edit-modal-footer .btn {
+    min-width: 0;
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+}
+
+/* Match student edit modal to the bottom-sheet style used by top-up */
+@media (max-width: 800px) {
+  main.admin-page-root .admin-edit-modal-backdrop {
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    overflow-y: auto;
+  }
+  main.admin-page-root .admin-edit-modal {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 94vh !important;
+    max-height: 94dvh !important;
+    margin: auto 0 0 !important;
+    padding: 20px 18px calc(20px + env(safe-area-inset-bottom)) !important;
+    border-radius: 28px 28px 0 0 !important;
+    border-bottom: 0;
+    animation: adminEditSheetIn .22s ease-out;
+  }
+}
+@keyframes adminEditSheetIn {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Use a compact close icon in the top-right corner of the student edit modal */
+main.admin-page-root .admin-edit-modal .section-heading {
+  position: relative;
+  padding-right: 42px;
+}
+main.admin-page-root .admin-edit-modal .admin-edit-modal-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #475569;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+main.admin-page-root .admin-edit-modal .admin-edit-modal-close:hover {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+main.admin-page-root .admin-edit-modal .admin-edit-modal-close:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, .35);
+  outline-offset: 2px;
+}
+
+/* Snack-credit ledger and repayment approval */
+main.admin-page-root .snack-debt-section .section-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+main.admin-page-root .snack-debt-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+main.admin-page-root .snack-debt-summary > div {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 17px;
+  background: #f8fafc;
+}
+main.admin-page-root .snack-debt-summary > div:first-child {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+main.admin-page-root .snack-debt-summary span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+main.admin-page-root .snack-debt-summary strong {
+  color: #172033;
+  font-size: 23px;
+  overflow-wrap: anywhere;
+}
+main.admin-page-root .snack-debt-summary > div:first-child strong {
+  color: #c2410c;
+}
+main.admin-page-root .snack-debt-message {
+  margin: 12px 0;
+}
+main.admin-page-root .snack-debt-list {
+  display: grid;
+  gap: 13px;
+}
+main.admin-page-root .snack-debt-card {
+  padding: 17px;
+  border: 1px solid #e2e8f0;
+  border-radius: 19px;
+  background: #fff;
+}
+main.admin-page-root .snack-debt-card.is-unpaid {
+  border-color: #fed7aa;
+  box-shadow: 0 5px 16px rgb(234 88 12 / 5%);
+}
+main.admin-page-root .snack-debt-card-top,
+main.admin-page-root .snack-debt-card-bottom {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+main.admin-page-root .snack-debt-student {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+main.admin-page-root .snack-debt-student strong {
+  color: #172033;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+main.admin-page-root .snack-debt-student span {
+  color: #64748b;
+  font-size: 12px;
+}
+main.admin-page-root .snack-debt-status {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+main.admin-page-root .snack-debt-status.unpaid {
+  background: #ffedd5;
+  color: #c2410c;
+}
+main.admin-page-root .snack-debt-status.paid {
+  background: #d1fae5;
+  color: #047857;
+}
+main.admin-page-root .snack-debt-items {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+  padding: 12px 13px;
+  border-radius: 13px;
+  background: #f8fafc;
+}
+main.admin-page-root .snack-debt-items > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #475569;
+  font-size: 13px;
+}
+main.admin-page-root .snack-debt-items b {
+  color: #172033;
+  white-space: nowrap;
+}
+main.admin-page-root .snack-debt-card-bottom {
+  align-items: flex-end;
+  padding-top: 13px;
+  border-top: 1px solid #eef2f7;
+}
+main.admin-page-root .snack-debt-card-bottom > div {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+main.admin-page-root .snack-debt-card-bottom small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+main.admin-page-root .snack-debt-card-bottom strong {
+  color: #c2410c;
+  font-size: 22px;
+}
+main.admin-page-root .snack-debt-card-bottom span {
+  color: #64748b;
+  font-size: 11px;
+}
+main.admin-page-root .snack-debt-approve-btn {
+  min-height: 43px;
+  flex: 0 0 auto;
+  padding: 10px 13px;
+  border: 0;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #059669, #10b981);
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 7px 16px rgb(5 150 105 / 16%);
+}
+main.admin-page-root .snack-debt-approve-btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+main.admin-page-root .snack-debt-paid-note {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #ecfdf5;
+  color: #047857 !important;
+  font-weight: 800;
+}
+main.admin-page-root .snack-debt-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 35px 18px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 18px;
+  color: #64748b;
+  text-align: center;
+}
+main.admin-page-root .snack-debt-empty > span {
+  font-size: 32px;
+}
+main.admin-page-root .snack-debt-empty strong {
+  color: #334155;
+}
+main.admin-page-root .snack-debt-empty p,
+main.admin-page-root .snack-debt-empty small {
+  margin: 0;
+  font-size: 12px;
+}
+@media (max-width: 700px) {
+  main.admin-page-root .snack-debt-summary {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  main.admin-page-root .snack-debt-summary > div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+  }
+  main.admin-page-root .snack-debt-summary strong {
+    font-size: 20px;
+  }
+  main.admin-page-root .snack-debt-card {
+    padding: 14px;
+  }
+  main.admin-page-root .snack-debt-card-top,
+  main.admin-page-root .snack-debt-card-bottom {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  main.admin-page-root .snack-debt-card-top {
+    gap: 9px;
+  }
+  main.admin-page-root .snack-debt-status {
+    align-self: flex-start;
+  }
+  main.admin-page-root .snack-debt-approve-btn,
+  main.admin-page-root .snack-debt-paid-note {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* Beautiful confirmation modal for snack-debt repayment */
+main.admin-page-root .snack-debt-approval-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: 22px;
+  background: rgb(15 23 42 / 64%);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: snackDebtApprovalFade .18s ease-out;
+}
+main.admin-page-root .snack-debt-approval-modal {
+  position: relative;
+  width: min(100%, 480px);
+  max-height: min(88vh, 820px);
+  overflow-y: auto;
+  margin: auto;
+  padding: 28px;
+  border: 1px solid rgb(255 255 255 / 75%);
+  border-radius: 28px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  box-shadow: 0 28px 90px rgb(2 6 23 / 32%);
+  animation: snackDebtApprovalRise .22s ease-out;
+}
+main.admin-page-root .snack-debt-approval-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 13px;
+  background: #f8fafc;
+  color: #64748b;
+  cursor: pointer;
+}
+main.admin-page-root .snack-debt-approval-close:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+main.admin-page-root .snack-debt-approval-close:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+main.admin-page-root .snack-debt-approval-hero {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  padding: 4px 12px 20px;
+  text-align: center;
+}
+main.admin-page-root .snack-debt-approval-icon {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 3px;
+  place-items: center;
+  border: 1px solid #a7f3d0;
+  border-radius: 24px;
+  background: linear-gradient(145deg, #d1fae5, #ecfdf5);
+  color: #059669;
+  box-shadow: 0 10px 24px rgb(5 150 105 / 12%);
+}
+main.admin-page-root .snack-debt-approval-eyebrow {
+  color: #059669;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+main.admin-page-root .snack-debt-approval-hero h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 23px;
+  font-weight: 900;
+  letter-spacing: -.025em;
+}
+main.admin-page-root .snack-debt-approval-hero p {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+main.admin-page-root .snack-debt-approval-student {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 17px;
+  background: #f8fafc;
+}
+main.admin-page-root .snack-debt-approval-avatar {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  place-items: center;
+  border-radius: 15px;
+  background: #e0e7ff;
+  font-size: 23px;
+}
+main.admin-page-root .snack-debt-approval-student > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+main.admin-page-root .snack-debt-approval-student strong {
+  overflow-wrap: anywhere;
+  color: #1e293b;
+  font-size: 15px;
+  font-weight: 850;
+}
+main.admin-page-root .snack-debt-approval-student > div span {
+  color: #64748b;
+  font-size: 12px;
+}
+main.admin-page-root .snack-debt-approval-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid #a7f3d0;
+  border-radius: 17px;
+  background: linear-gradient(120deg, #ecfdf5, #f0fdfa);
+}
+main.admin-page-root .snack-debt-approval-total span {
+  color: #047857;
+  font-size: 13px;
+  font-weight: 800;
+}
+main.admin-page-root .snack-debt-approval-total strong {
+  color: #047857;
+  font-size: 27px;
+  font-weight: 950;
+  font-variant-numeric: tabular-nums;
+}
+main.admin-page-root .snack-debt-approval-items {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+main.admin-page-root .snack-debt-approval-items-heading {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 850;
+}
+main.admin-page-root .snack-debt-approval-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  color: #475569;
+  font-size: 13px;
+}
+main.admin-page-root .snack-debt-approval-item > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+main.admin-page-root .snack-debt-approval-item small {
+  color: #94a3b8;
+  font-size: 12px;
+}
+main.admin-page-root .snack-debt-approval-item strong {
+  flex: 0 0 auto;
+  color: #334155;
+  font-variant-numeric: tabular-nums;
+}
+main.admin-page-root .snack-debt-approval-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 19px;
+  padding: 12px;
+  border-radius: 13px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  line-height: 1.6;
+}
+main.admin-page-root .snack-debt-approval-warning svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+main.admin-page-root .snack-debt-approval-actions {
+  display: grid;
+  grid-template-columns: .85fr 1.15fr;
+  gap: 10px;
+  margin-top: 22px;
+}
+main.admin-page-root .snack-debt-approval-actions button {
+  min-height: 49px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 15px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 850;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+}
+main.admin-page-root .snack-debt-approval-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+main.admin-page-root .snack-debt-approval-actions button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+main.admin-page-root .snack-debt-approval-cancel {
+  background: #f1f5f9;
+  color: #475569;
+}
+main.admin-page-root .snack-debt-approval-confirm {
+  background: linear-gradient(135deg, #059669, #10b981);
+  color: #fff;
+  box-shadow: 0 9px 22px rgb(5 150 105 / 23%);
+}
+@keyframes snackDebtApprovalFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes snackDebtApprovalRise {
+  from { opacity: 0; transform: translateY(12px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (max-width: 600px) {
+  main.admin-page-root .snack-debt-approval-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  main.admin-page-root .snack-debt-approval-modal {
+    width: 100%;
+    max-height: 92dvh;
+    padding: 24px 18px calc(20px + env(safe-area-inset-bottom));
+    border-radius: 27px 27px 0 0;
+    border-bottom: 0;
+  }
+  main.admin-page-root .snack-debt-approval-hero {
+    padding-top: 8px;
+  }
+  main.admin-page-root .snack-debt-approval-hero h2 {
+    font-size: 21px;
+  }
+  main.admin-page-root .snack-debt-approval-actions {
+    grid-template-columns: 1fr 1.25fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  main.admin-page-root .snack-debt-approval-backdrop,
+  main.admin-page-root .snack-debt-approval-modal {
+    animation: none;
+  }
+}

@@ -23,7 +23,7 @@ export type Product = {
 export type WalletTransaction = {
   id: string
   student_id: string
-  type: 'topup' | 'purchase' | 'refund' | 'adjustment'
+  type: 'topup' | 'purchase' | 'refund' | 'adjustment' | 'debt_repayment'
   amount: number
   balance_before: number
   balance_after: number

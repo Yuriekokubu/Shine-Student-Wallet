@@ -92,3 +92,33 @@ export async function purchaseProducts(
 
   return data as PurchaseResult
 }
+export type SnackDebtResult = {
+  debt_id: string
+  order_id: string
+  amount: number
+  balance: number
+}
+
+export async function recordSnackDebt(
+  studentId: string,
+  items: CartItem[],
+): Promise<SnackDebtResult> {
+  if (!supabase) {
+    throw new Error('ยังไม่ได้ตั้งค่า Supabase')
+  }
+
+  const { data, error } = await supabase.rpc('record_snack_debt', {
+    p_student_id: studentId,
+    p_items: items,
+  })
+
+  if (error) {
+    throw new Error(getSupabaseErrorMessage(error))
+  }
+
+  if (!data) {
+    throw new Error('ระบบบันทึกติดเงินไม่ส่งผลลัพธ์กลับมา')
+  }
+
+  return data as SnackDebtResult
+}
