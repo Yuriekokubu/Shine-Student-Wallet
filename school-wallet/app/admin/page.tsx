@@ -6,7 +6,7 @@ import QRCode from 'qrcode'
 import { supabase } from '../../lib/supabase'
 import { useWalletRealtime } from '../../lib/use-wallet-realtime'
 import WalletDashboard from '../../components/admin/WalletDashboard'
-import { Activity, CheckCircle2, ClipboardCheck, GraduationCap, History, LayoutDashboard, LogOut, Package, Pencil, Plus, QrCode, RadioTower, Search, ShoppingBag, Store, Trash2, UsersRound, Wallet, X } from 'lucide-react'
+import { Activity, CheckCircle2, ClipboardCheck, Fingerprint, GraduationCap, History, LayoutDashboard, LogOut, Package, Pencil, Plus, QrCode, RadioTower, Search, ShoppingBag, Store, Trash2, UsersRound, Wallet, X } from 'lucide-react'
 import AdminOverlays from '../../components/admin/AdminOverlays'
 import RealtimeTransactionsPanel from '../../components/admin/RealtimeTransactionsPanel'
 import PurchaseDetailsModal, { type PurchaseItem } from '../../components/admin/PurchaseDetailsModal'
@@ -51,8 +51,6 @@ export default function AdminPage() {
   const [history, setHistory] = useState<WalletTransaction[]>([])
   const [historyPage, setHistoryPage] = useState(1)
   const historyPageSize = 8
-  const [realtimePage, setRealtimePage] = useState(1)
-  const realtimePageSize = 8
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
@@ -115,18 +113,6 @@ export default function AdminPage() {
     const start = (historyPage - 1) * historyPageSize
     return selectedHistory.slice(start, start + historyPageSize)
   }, [selectedHistory, historyPage, historyPageSize])
-
-  const totalRealtimePages = Math.max(1, Math.ceil(transactions.length / realtimePageSize))
-  const paginatedRealtime = useMemo(() => {
-    const start = (realtimePage - 1) * realtimePageSize
-    return transactions.slice(start, start + realtimePageSize)
-  }, [transactions, realtimePage, realtimePageSize])
-
-  useEffect(() => {
-    if (realtimePage > totalRealtimePages) {
-      setRealtimePage(totalRealtimePages)
-    }
-  }, [realtimePage, totalRealtimePages])
 
   const [newName, setNewName] = useState('')
   const [newGroup, setNewGroup] = useState('เด็กเล็ก')
@@ -717,6 +703,7 @@ export default function AdminPage() {
         <div><div className="brand"><span className="admin-brand-icon"><Wallet size={22} strokeWidth={2.4} /></span><span>Shine Wallet <span className="admin-brand-light">Admin</span></span></div><div className="muted">จัดการนักเรียน · เงิน · สินค้า · ประวัติธุรกรรม</div></div>
         <div className="admin-actions">
           <Link href="/kiosk" className="btn admin-kiosk-top-btn"><Store size={17} /> จุดขาย</Link>
+          <Link href="/admin/face-recognition" className="btn" style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><Fingerprint size={17} /> จดจำใบหน้า</Link>
           <button className="btn dark admin-logout-btn" onClick={requestLogout}><LogOut size={17} /> ออกจากระบบ</button>
         </div>
       </div>
@@ -759,12 +746,8 @@ export default function AdminPage() {
         <RealtimeTransactionsPanel
           students={students}
           transactions={transactions}
-          paginatedTransactions={paginatedRealtime}
           connected={realtimeConnected}
           error={realtimeError}
-          page={realtimePage}
-          totalPages={totalRealtimePages}
-          onPageChange={setRealtimePage}
         />
       ) : tab === 'debts' ? (
         <section className="card admin-section snack-debt-section">

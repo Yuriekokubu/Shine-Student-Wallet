@@ -20,6 +20,12 @@ export default function StudentPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('student')
+    if (token) void handleScan(token)
+  }, [])
+
   async function handleScan(token: string) {
     setLoading(true)
     setError('')

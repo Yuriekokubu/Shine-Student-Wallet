@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import QrScanner from '../../components/QrScanner'
 import {
@@ -29,7 +29,211 @@ export default function KioskPage() {
   const [topupMessage, setTopupMessage] = useState('')
   const [topupSuccess, setTopupSuccess] = useState(false)
   const [adminLoggedIn, setAdminLoggedIn] = useState(false)
+  const [faceCameraOpen, setFaceCameraOpen] = useState(false)
+  const [faceSearching, setFaceSearching] = useState(false)
+  const [faceVideoReady, setFaceVideoReady] = useState(false)
+  const [faceMessage, setFaceMessage] = useState('')
+  const [faceMatches, setFaceMatches] = useState<Array<Student & { similarity: number }>>([])
+  const [snackDetection, setSnackDetection] = useState<{ quantity: number; needsManualCount: boolean; message: string; confidence: number } | null>(null)
+  const [snackQuantity, setSnackQuantity] = useState('1')
+  const [snackDetecting, setSnackDetecting] = useState(false)
+  const faceVideoRef = useRef<HTMLVideoElement>(null)
+  const faceCanvasRef = useRef<HTMLCanvasElement>(null)
+  const faceStreamRef = useRef<MediaStream | null>(null)
 
+
+  const stopFaceCamera = useCallback(() => {
+    faceStreamRef.current?.getTracks().forEach((track) => track.stop())
+    faceStreamRef.current = null
+    setFaceVideoReady(false)
+    if (faceVideoRef.current) faceVideoRef.current.srcObject = null
+    setFaceCameraOpen(false)
+  }, [])
+
+  useEffect(() => {
+    if (!faceCameraOpen || !faceVideoRef.current || !faceStreamRef.current) return
+
+    const video = faceVideoRef.current
+    video.srcObject = faceStreamRef.current
+    video.muted = true
+    video.playsInline = true
+
+    const playVideo = async () => {
+      try {
+        await video.play()
+      } catch (error) {
+        console.error('[KioskFaceCamera] video playback error:', error)
+        setFaceMessage('เปิดกล้องแล้ว แต่แสดงภาพไม่ได้ กรุณากดปิดกล้องแล้วเปิดใหม่ หรือรีโหลดหน้าเว็บ')
+      }
+    }
+
+    void playVideo()
+
+    return () => {
+      video.srcObject = null
+    }
+  }, [faceCameraOpen]) 
+
+  useEffect(() => {
+    return () => {
+      faceStreamRef.current?.getTracks().forEach((track) => track.stop())
+    }
+  }, [])
+
+  async function openFaceCamera() {
+    setFaceMessage('')
+    setFaceMatches([])
+    if (!adminLoggedIn) {
+      setFaceMessage('การสแกนใบหน้าต้องเข้าสู่ระบบ Admin ก่อน')
+      return
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setFaceMessage('เบราว์เซอร์ไม่รองรับกล้อง กรุณาเปิดผ่าน HTTPS หรือ localhost')
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      })
+      faceStreamRef.current = stream
+      setFaceVideoReady(false)
+      setFaceCameraOpen(true)
+      setFaceMessage('กล้องกำลังเริ่มทำงาน...')
+    } catch (error) {
+      const cameraError = error as { name?: string; message?: string }
+      if (cameraError.name === 'NotAllowedError') {
+        setFaceMessage('ยังไม่ได้อนุญาตให้ใช้กล้อง กรุณาอนุญาตกล้องจากการตั้งค่าเบราว์เซอร์')
+      } else if (cameraError.name === 'NotFoundError') {
+        setFaceMessage('ไม่พบกล้องในอุปกรณ์นี้')
+      } else if (cameraError.name === 'NotReadableError') {
+        setFaceMessage('กล้องกำลังถูกใช้งานโดยโปรแกรมอื่น กรุณาปิดโปรแกรมนั้นแล้วลองใหม่')
+      } else {
+        setFaceMessage(`เปิดกล้องไม่สำเร็จ: ${cameraError.message || 'เกิดข้อผิดพลาด'}`)
+      }
+    }
+  }
+
+  async function captureAndSearchFace() {
+    const video = faceVideoRef.current
+    const canvas = faceCanvasRef.current
+    if (!video || !canvas || !faceVideoReady || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth || !video.videoHeight) {
+      setFaceMessage('ยังไม่มีภาพจากกล้อง กรุณารอให้ภาพปรากฏในกรอบกล้องก่อน แล้วลองถ่ายอีกครั้ง')
+      return
+    }
+
+    setFaceSearching(true)
+    setFaceMessage('กำลังค้นหาใบหน้านักเรียน...')
+    setFaceMatches([])
+    try {
+      const scale = Math.min(1, 1600 / Math.max(video.videoWidth, video.videoHeight))
+      canvas.width = Math.round(video.videoWidth * scale)
+      canvas.height = Math.round(video.videoHeight * scale)
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error('ไม่สามารถเตรียมภาพจากกล้องได้')
+      context.drawImage(video, 0, 0, canvas.width, canvas.height)
+      const image = canvas.toDataURL('image/jpeg', 0.82)
+
+      // วิเคราะห์ภาพเดียวกันทั้งใบหน้านักเรียนและขนมที่ถือด้วย AWS Rekognition
+      setSnackDetecting(true)
+      const snackRequest = fetch('/api/snack-detection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image }),
+      }).then(async (snackResponse) => {
+        const snackResult = await snackResponse.json() as {
+          ok?: boolean; quantity?: number; needsManualCount?: boolean;
+          message?: string; confidence?: number; error?: string
+        }
+        if (!snackResponse.ok) throw new Error(snackResult.error || 'ตรวจจับขนมไม่สำเร็จ')
+        const quantity = Math.max(0, Math.floor(Number(snackResult.quantity) || 0))
+        setSnackDetection({
+          quantity,
+          needsManualCount: Boolean(snackResult.needsManualCount),
+          message: snackResult.message || 'วิเคราะห์ภาพแล้ว',
+          confidence: Number(snackResult.confidence) || 0,
+        })
+        setSnackQuantity(String(quantity > 0 ? quantity : 1))
+      }).catch((snackError) => {
+        setSnackDetection({
+          quantity: 0,
+          needsManualCount: true,
+          message: snackError instanceof Error ? snackError.message : 'ตรวจจับขนมไม่สำเร็จ',
+          confidence: 0,
+        })
+        setSnackQuantity('1')
+      }).finally(() => setSnackDetecting(false))
+
+      const response = await fetch('/api/face-recognition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'search', image }),
+      })
+      const result = await response.json() as {
+        ok?: boolean
+        found?: boolean
+        message?: string
+        error?: string
+        matches?: Array<Student & { similarity: number }>
+      }
+      if (!response.ok) throw new Error(result.error || 'ค้นหาใบหน้าไม่สำเร็จ')
+      await snackRequest
+      if (!result.matches?.length) {
+        setFaceMessage(result.message || 'ไม่พบใบหน้าที่ลงทะเบียนไว้ กรุณาลองใหม่หรือสแกน QR')
+        return
+      }
+
+      const activeMatches = result.matches.filter((match) => match.active !== false)
+      if (!activeMatches.length) {
+        setFaceMessage('ไม่พบข้อมูลนักเรียนที่เปิดใช้งานจากใบหน้านี้')
+        return
+      }
+      stopFaceCamera()
+      if (activeMatches.length === 1) {
+        // เมื่อตรวจพบใบหน้าเดียว ให้เลือกนักเรียนในหน้า Kiosk ทันที
+        // จากนั้นผู้ใช้เลือกต่อได้ว่าจะไปหน้าซื้อขนมหรือเติมเงิน
+        const match = activeMatches[0]
+        const studentResult = await getActiveStudentByToken(match.qr_token)
+        if (studentResult.error) throw new Error(studentResult.error.message)
+        if (!studentResult.data || studentResult.data.id !== match.id) {
+          setFaceMessage('ไม่สามารถยืนยันข้อมูลนักเรียนได้ กรุณาสแกน QR หรือค้นหาด้วยชื่อแทน')
+          return
+        }
+        selectStudent(studentResult.data)
+        setFaceMatches([])
+        setFaceMessage('ตรวจพบและเลือกนักเรียนแล้ว กรุณาเลือกซื้อขนมหรือเติมเงิน')
+        return
+      }
+      // หากมีหลายใบหน้าที่ตรงกัน ไม่ควรเดาเลือกนักเรียนผิดคน
+      setFaceMatches(activeMatches)
+      setFaceMessage(`พบ ${activeMatches.length} รายการที่อาจตรงกัน กรุณาเลือกนักเรียนให้ถูกต้อง`)
+    } catch (error) {
+      setFaceMessage(`ค้นหาใบหน้าไม่สำเร็จ: ${getWalletErrorMessage(error)}`)
+    } finally {
+      setFaceSearching(false)
+    }
+  }
+
+  async function chooseFaceMatch(match: Student & { similarity: number }) {
+    setLoading(true)
+    setFaceMessage('กำลังตรวจสอบข้อมูลนักเรียน...')
+    try {
+      const result = await getActiveStudentByToken(match.qr_token)
+      if (result.error) throw new Error(result.error.message)
+      if (!result.data || result.data.id !== match.id) {
+        setFaceMessage('ไม่สามารถยืนยันข้อมูลนักเรียนได้ กรุณาสแกน QR หรือค้นหาด้วยชื่อแทน')
+        return
+      }
+      selectStudent(result.data)
+      setFaceMatches([])
+      setFaceMessage('')
+    } catch (error) {
+      setFaceMessage(`ยืนยันนักเรียนไม่สำเร็จ: ${getWalletErrorMessage(error)}`)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const refreshSelectedStudent = useCallback(async () => {
     if (!student) return
@@ -190,6 +394,9 @@ export default function KioskPage() {
     setTopupOpen(false)
     setTopupMessage('')
     setTopupSuccess(false)
+    setFaceMatches([])
+    setFaceMessage('')
+    stopFaceCamera()
   }
 
   return (
@@ -229,6 +436,108 @@ export default function KioskPage() {
           <div className="scanner-wrapper">
             <QrScanner onScan={lookup} />
           </div>
+
+          {adminLoggedIn && (
+          <div className="kiosk-face-scan">
+            <div className="kiosk-divider"><span>หรือสแกนด้วยใบหน้า</span></div>
+            <button
+              type="button"
+              className="kiosk-face-button"
+              onClick={faceCameraOpen ? stopFaceCamera : openFaceCamera}
+              disabled={faceSearching || !adminLoggedIn}
+              title={!adminLoggedIn ? 'ต้องเข้าสู่ระบบ Admin ก่อน' : 'เปิดกล้องเพื่อค้นหานักเรียนด้วยใบหน้า'}
+            >
+              <span className="kiosk-face-icon">◎</span>
+              <span>{faceCameraOpen ? 'ปิดกล้องใบหน้า' : 'เปิดกล้องสแกนใบหน้า'}</span>
+              <strong>{faceCameraOpen ? '×' : '→'}</strong>
+            </button>
+            {!adminLoggedIn && <p className="kiosk-face-hint">🔐 สแกนใบหน้าต้องเข้าสู่ระบบ Admin ก่อน</p>}
+            {faceCameraOpen && (
+              <div className="kiosk-face-camera">
+                <video
+                  ref={faceVideoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  onLoadedMetadata={() => {
+                    const video = faceVideoRef.current
+                    if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+                      setFaceVideoReady(true)
+                      setFaceMessage('')
+                    }
+                  }}
+                  onPlaying={() => {
+                    const video = faceVideoRef.current
+                    if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+                      setFaceVideoReady(true)
+                      setFaceMessage('')
+                    }
+                  }}
+                />
+                <canvas ref={faceCanvasRef} style={{ display: 'none' }} />
+                <p>{faceVideoReady ? 'จัดใบหน้าให้อยู่กลางภาพ แสงสว่างเพียงพอ และมีเพียงหนึ่งคนในภาพ' : 'กำลังรอภาพจากกล้อง... ตรวจสอบว่ากล้องไม่ได้ถูกใช้โดยโปรแกรมอื่น'}</p>
+                <button type="button" onClick={captureAndSearchFace} disabled={faceSearching || !faceVideoReady}>
+                  {faceSearching ? 'กำลังวิเคราะห์ภาพ...' : '📸 ถ่ายภาพนักเรียน + ขนม'}
+                </button>
+              </div>
+            )}
+            {faceMessage && <div className={`status ${faceMatches.length ? 'success' : 'error'} kiosk-message`}>{faceMessage}</div>}
+            {snackDetection && (
+              <div className="kiosk-snack-detection">
+                <div className="kiosk-snack-title">🍪 ผลตรวจจับขนมจาก AWS</div>
+                <div className="kiosk-snack-result">
+                  <strong>ขนม</strong>
+                  <label htmlFor="detected-snack-quantity">จำนวนชิ้น</label>
+                  <input
+                    id="detected-snack-quantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    value={snackQuantity}
+                    onChange={(event) => setSnackQuantity(event.target.value)}
+                    disabled={snackDetecting}
+                  />
+                </div>
+                <p>{snackDetection.message}</p>
+                {snackDetection.confidence > 0 && <small>ความมั่นใจของป้ายกำกับที่เกี่ยวข้อง: {snackDetection.confidence.toFixed(1)}% (ไม่ใช่ความแม่นยำในการนับ)</small>}
+                <button
+                  type="button"
+                  className="kiosk-snack-cart-btn"
+                  disabled={!student || snackDetecting || !Number.isInteger(Number(snackQuantity)) || Number(snackQuantity) < 1}
+                  onClick={() => {
+                    if (!student) {
+                      setFaceMessage('กรุณาเลือกหรือค้นหานักเรียนก่อน แล้วจึงส่งจำนวนขนมไปยังตะกร้า')
+                      return
+                    }
+                    const qty = Math.floor(Number(snackQuantity))
+                    window.location.href = `/?student=${encodeURIComponent(student.qr_token)}&detectedSnackQty=${qty}&detectedSnackName=${encodeURIComponent('ขนม')}`
+                  }}
+                >
+                  {snackDetecting ? 'กำลังวิเคราะห์...' : student ? '🛒 ส่ง “ขนม” ไปเตรียมตะกร้า' : '🔎 เลือกนักเรียนก่อนส่งไปตะกร้า'}
+                </button>
+              </div>
+            )}
+            {faceMatches.length > 0 && (
+              <div className="student-search-results">
+                <div className="student-search-results-title">ยืนยันนักเรียนจากใบหน้า</div>
+                {faceMatches.map((match) => (
+                  <button type="button" key={match.id} className="student-search-result" onClick={() => chooseFaceMatch(match)} disabled={loading}>
+                    <div className="student-search-avatar">
+                      {match.photo_url ? <img src={match.photo_url} alt="" /> : '👤'}
+                    </div>
+                    <div className="student-search-info">
+                      <strong>{match.full_name}</strong>
+                      <span>{match.student_code} · {match.class_name || 'ไม่ระบุชั้น'}</span>
+                      <span>ความคล้ายใบหน้า {Number(match.similarity).toFixed(1)}%</span>
+                    </div>
+                    <span className="student-search-arrow">เลือก →</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          )}
 
           <div className="kiosk-divider">
             <span>หรือค้นหานักเรียนเอง</span>
@@ -436,6 +745,27 @@ export default function KioskPage() {
         .kiosk-continue-btn { background: linear-gradient(135deg, #6d28d9, #8b5cf6); color: #fff; box-shadow: 0 12px 28px rgba(109, 40, 217, 0.22); }
         .kiosk-topup-btn { background: linear-gradient(135deg, #059669, #10b981); color: #fff; box-shadow: 0 12px 28px rgba(5, 150, 105, 0.22); }
         .kiosk-topup-btn:hover, .kiosk-continue-btn:hover { transform: translateY(-2px); }
+        .kiosk-snack-detection { margin-top: 12px; padding: 14px; border: 1px solid #fed7aa; border-radius: 18px; background: linear-gradient(135deg,#fff7ed,#fffbeb); }
+        .kiosk-snack-title { color: #9a3412; font-size: 14px; font-weight: 900; }
+        .kiosk-snack-result { display: grid; grid-template-columns: 1fr auto 90px; align-items: center; gap: 10px; margin-top: 12px; }
+        .kiosk-snack-result strong { color: #7c2d12; font-size: 19px; }
+        .kiosk-snack-result label { color: #7c2d12; font-size: 13px; font-weight: 700; }
+        .kiosk-snack-result input { width: 100%; min-width: 0; padding: 10px; border: 1px solid #fdba74; border-radius: 10px; background: white; color: #7c2d12; font: inherit; font-weight: 800; }
+        .kiosk-snack-detection p { margin: 9px 0 4px; color: #9a3412; font-size: 13px; }
+        .kiosk-snack-detection small { display: block; margin-top: 5px; color: #9a3412; font-size: 11px; }
+        .kiosk-snack-cart-btn { width: 100%; min-height: 48px; margin-top: 12px; border: 0; border-radius: 13px; background: linear-gradient(120deg,#ea580c,#f59e0b); color: white; font: inherit; font-weight: 900; cursor: pointer; }
+        .kiosk-snack-cart-btn:disabled { opacity: .6; cursor: not-allowed; }
+        .kiosk-face-button { width: 100%; min-height: 58px; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid #c4b5fd; border-radius: 16px; background: linear-gradient(120deg,#f5f3ff,#eef2ff); color: #5b21b6; font: inherit; font-weight: 800; cursor: pointer; text-align: left; }
+        .kiosk-face-button:disabled { opacity: .6; cursor: not-allowed; }
+        .kiosk-face-button > span:nth-child(2) { flex: 1; }
+        .kiosk-face-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; background: #ddd6fe; font-size: 25px; }
+        .kiosk-face-button strong { font-size: 22px; }
+        .kiosk-face-hint { margin: 8px 2px 0; color: #b45309; font-size: 12px; }
+        .kiosk-face-camera { margin-top: 12px; padding: 12px; border-radius: 18px; background: #0f172a; }
+        .kiosk-face-camera video { display: block; width: 100%; max-height: 320px; object-fit: cover; border-radius: 12px; background: #020617; }
+        .kiosk-face-camera p { color: #e2e8f0; font-size: 12px; line-height: 1.5; text-align: center; }
+        .kiosk-face-camera button { width: 100%; min-height: 48px; border: 0; border-radius: 13px; background: linear-gradient(120deg,#7c3aed,#4f46e5); color: white; font: inherit; font-weight: 800; cursor: pointer; }
+        .kiosk-face-camera button:disabled { opacity: .65; cursor: wait; }
         .student-search-results { margin-top: 14px; padding: 12px; border: 1px solid #e2e8f0; border-radius: 18px; background: #f8fafc; }
         .student-search-results-title { margin: 2px 4px 8px; color: #334155; font-size: 13px; font-weight: 800; }
         .student-search-result { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; text-align: left; cursor: pointer; margin-top: 7px; }

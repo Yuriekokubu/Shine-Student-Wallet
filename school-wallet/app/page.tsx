@@ -24,6 +24,7 @@ export default function HomePage() {
   const [message, setMessage] = useState('')
   const [token, setToken] = useState<string | null | undefined>(undefined)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [detectedSnackHandled, setDetectedSnackHandled] = useState(false)
 
   // Refresh only the data affected by a Realtime event to avoid redundant queries.
   useWalletRealtime((table) => {
@@ -45,6 +46,31 @@ export default function HomePage() {
     const params = new URLSearchParams(window.location.search)
     setToken(params.get('student'))
   }, [])
+
+  useEffect(() => {
+    if (detectedSnackHandled || token === undefined) return
+    const params = new URLSearchParams(window.location.search)
+    const quantity = Math.floor(Number(params.get('detectedSnackQty')) || 0)
+    if (quantity < 1 || params.get('detectedSnackName') !== 'ขนม') return
+    if (loading) return
+
+    const product = products.find((item) => item.name.trim() === 'ขนม' && Number(item.stock) > 0)
+    if (product) {
+      const quantityToAdd = Math.min(quantity, Number(product.stock))
+      setCart((current) => ({
+        ...current,
+        [product.id]: Math.min(Number(product.stock), (current[product.id] || 0) + quantityToAdd),
+      }))
+      setMessage(`เพิ่ม “ขนม” ลงตะกร้า ${quantityToAdd} ชิ้นแล้ว กรุณาตรวจสอบก่อน Checkout`)
+    } else {
+      // หากไม่มีสินค้า "ขนม" ในคลัง ให้เพิ่มเป็นรายการอื่น ๆ ทันที ราคาเริ่มต้นชิ้นละ 5 บาท
+      setCustomItems((current) => [
+        ...current,
+        { id: `custom-snack-${Date.now()}`, name: 'ขนม', price: 5, quantity },
+      ])
+    }
+    setDetectedSnackHandled(true)
+  }, [detectedSnackHandled, token, loading, products])
 
   useEffect(() => {
     if (!supabase) return
