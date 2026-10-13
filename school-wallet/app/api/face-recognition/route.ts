@@ -80,6 +80,28 @@ export async function POST(request: Request) {
       consentConfirmed?: boolean
     }
 
+    if (body.action === 'status') {
+      const { data: profiles, error: profilesError } = await supabase
+        .from('student_face_profiles')
+        .select('student_id')
+        .eq('provider', 'rekognition')
+        .eq('consent_status', 'granted')
+        .is('withdrawn_at', null)
+        .not('face_id', 'is', null)
+
+      if (profilesError) throw profilesError
+
+      const enrolledStudentIds = Array.from(
+        new Set((profiles ?? []).map((profile) => profile.student_id).filter(Boolean)),
+      )
+
+      return NextResponse.json({
+        ok: true,
+        enrolledStudentIds,
+        enrolledCount: enrolledStudentIds.length,
+      })
+    }
+
     if (body.action === 'setup') {
       const result = await ensureCollection()
       return NextResponse.json({

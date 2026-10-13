@@ -31,9 +31,11 @@ export default function WalletDashboard({ students, transactions, totalBalance }
   const data = useMemo(() => {
     const active = students.filter((student) => student.active)
     const activeById = new Map(active.map((student) => [student.id, student]))
+    // ใช้ข้อมูลนักเรียนทุกคนเพื่อจำแนกกลุ่มธุรกรรมย้อนหลัง แม้บัญชีถูกปิดใช้งานแล้ว
+    const studentsById = new Map(students.map((student) => [student.id, student]))
     const purchases = transactions.filter((transaction) => transaction.type === 'purchase' || transaction.type === 'debt_repayment')
     const spending = new Map<string, number>()
-    const daily = new Map<string, number>()
+    const daily = new Map<string, { amount: number; older: number; younger: number }>()
     const groups = new Map<string, number>()
 
     for (const transaction of purchases) {
@@ -41,9 +43,18 @@ export default function WalletDashboard({ students, transactions, totalBalance }
       spending.set(transaction.student_id, (spending.get(transaction.student_id) || 0) + amount)
       const date = new Date(transaction.created_at)
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-      daily.set(key, (daily.get(key) || 0) + amount)
-      const group = activeById.get(transaction.student_id)?.class_name || 'ไม่ระบุกลุ่ม'
-      groups.set(group, (groups.get(group) || 0) + amount)
+      const group = (studentsById.get(transaction.student_id)?.class_name || '').trim().toLocaleLowerCase('th-TH')
+      const daySpend = daily.get(key) || { amount: 0, older: 0, younger: 0 }
+      daySpend.amount += amount
+      // ยอมรับชื่อกลุ่มที่มีช่องว่างหรือข้อความประกอบ เช่น "กลุ่มเด็กโต"
+      if (group.includes('เด็กโต')) {
+        daySpend.older += amount
+        groups.set('เด็กโต', (groups.get('เด็กโต') || 0) + amount)
+      } else if (group.includes('เด็กเล็ก')) {
+        daySpend.younger += amount
+        groups.set('เด็กเล็ก', (groups.get('เด็กเล็ก') || 0) + amount)
+      }
+      daily.set(key, daySpend)
     }
 
     const top = [...spending.entries()]
@@ -56,7 +67,8 @@ export default function WalletDashboard({ students, transactions, totalBalance }
     const days = Array.from({ length: 7 }, (_, index) => {
       const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6 + index)
       const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-      return { key, label: date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }), amount: daily.get(key) || 0 }
+      const spend = daily.get(key) || { amount: 0, older: 0, younger: 0 }
+      return { key, label: date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }), ...spend }
     })
 
     return {
@@ -270,10 +282,19 @@ export default function WalletDashboard({ students, transactions, totalBalance }
 
         <section className="card admin-section dashboard-panel">
           <div className="section-heading"><div><h2>📅 ยอดซื้อรายวัน</h2><p className="muted">7 วันล่าสุด</p></div></div>
-          <div className="dashboard-chart" role="img" aria-label="กราฟยอดซื้อรายวัน 7 วันล่าสุด">
+          <div className="dashboard-chart-legend" aria-label="คำอธิบายสีกราฟ">
+            <span><i className="dashboard-chart-legend-older" /> เด็กโต</span>
+            <span><i className="dashboard-chart-legend-younger" /> เด็กเล็ก</span>
+          </div>
+          <div className="dashboard-chart" role="img" aria-label="กราฟยอดซื้อรายวัน 7 วันล่าสุด แยกยอดเด็กโตและเด็กเล็ก">
             {data.days.map((day) => <div className="dashboard-chart-column" key={day.key}>
               <strong>฿{money(day.amount)}</strong>
-              <div className="dashboard-chart-bar-wrap"><span style={{ height: `${day.amount ? Math.max(5, day.amount / data.maxDay * 100) : 0}%` }} /></div>
+              <div className="dashboard-chart-bar-wrap">
+                <div className="dashboard-chart-stack" style={{ height: `${day.amount ? Math.min(100, day.amount / data.maxDay * 100) : 0}%` }}>
+                  <span className="dashboard-chart-younger" title={`เด็กเล็ก ฿${money(day.younger)}`} style={{ height: `${day.amount ? day.younger / day.amount * 100 : 0}%`, flexShrink: 0 }} />
+                  <span className="dashboard-chart-older" title={`เด็กโต ฿${money(day.older)}`} style={{ height: `${day.amount ? day.older / day.amount * 100 : 0}%`, flexShrink: 0 }} />
+                </div>
+              </div>
               <small>{day.label}</small>
             </div>)}
           </div>
@@ -365,7 +386,15 @@ export default function WalletDashboard({ students, transactions, totalBalance }
         .dashboard-chart-column { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
         .dashboard-chart-column strong { color: #475569; font-size: 10px; white-space: nowrap; }
         .dashboard-chart-bar-wrap { display: flex; align-items: flex-end; justify-content: center; width: 100%; height: 145px; border-radius: 10px 10px 4px 4px; background: #f1f5f9; overflow: hidden; }
-        .dashboard-chart-bar-wrap span { display: block; width: min(70%, 30px); min-height: 0; border-radius: 8px 8px 2px 2px; background: linear-gradient(180deg, #818cf8, #4f46e5); transition: height .25s ease; }
+        .dashboard-chart-stack { display: flex; flex-direction: column-reverse; width: min(70%, 30px); min-height: 0; overflow: hidden; border-radius: 8px 8px 2px 2px; transition: height .25s ease; }
+        .dashboard-chart-stack span { display: block; width: 100%; min-height: 0; flex-shrink: 0; transition: height .25s ease; }
+        .dashboard-chart-younger { background: linear-gradient(180deg, #818cf8 0%, #4f46e5 100%) !important; }
+        .dashboard-chart-older { background: linear-gradient(180deg, #c4b5fd 0%, #7c3aed 100%) !important; }
+        .dashboard-chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin: -8px 0 8px; color: #475569; font-size: 11px; font-weight: 750; }
+        .dashboard-chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .dashboard-chart-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; }
+        .dashboard-chart-legend-older { background: #7c3aed; }
+        .dashboard-chart-legend-younger { background: #4f46e5; }
         .dashboard-chart-column small { color: #64748b; font-size: 10px; white-space: nowrap; }
         .dashboard-group-list { display: grid; gap: 18px; }
         .dashboard-group-row > div:first-child { display: flex; justify-content: space-between; gap: 10px; color: #334155; font-size: 13px; }

@@ -18,6 +18,9 @@ type Match = Student & { similarity: number }
 
 export default function FaceRecognitionPage() {
   const [students, setStudents] = useState<Student[]>([])
+  const [enrolledStudentIds, setEnrolledStudentIds] = useState<string[]>([])
+  const [statusLoading, setStatusLoading] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<'enrolled' | 'not-enrolled' | null>(null)
   const [selectedId, setSelectedId] = useState('')
   const [imageData, setImageData] = useState('')
   const [imageName, setImageName] = useState('')
@@ -48,6 +51,7 @@ export default function FaceRecognitionPage() {
       else setStudents((data ?? []) as Student[])
     }
     void loadStudents()
+    void refreshFaceStatuses()
   }, [])
 
   useEffect(() => {
@@ -72,6 +76,35 @@ export default function FaceRecognitionPage() {
       student.student_code.toLocaleLowerCase().includes(query)
     )
   }, [students, searchText])
+
+  async function refreshFaceStatuses() {
+    if (!supabase) {
+      setStatusLoading(false)
+      return
+    }
+
+    setStatusLoading(true)
+    try {
+      const { data, error: queryError } = await supabase
+        .from('student_face_profiles')
+        .select('student_id,face_id,provider,consent_status,withdrawn_at')
+        .eq('provider', 'rekognition')
+        .eq('consent_status', 'granted')
+        .is('withdrawn_at', null)
+        .not('face_id', 'is', null)
+
+      if (queryError) throw queryError
+
+      const ids = Array.from(
+        new Set((data ?? []).map((profile) => profile.student_id).filter(Boolean)),
+      )
+      setEnrolledStudentIds(ids)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'โหลดสถานะการลงทะเบียนใบหน้าไม่สำเร็จ')
+    } finally {
+      setStatusLoading(false)
+    }
+  }
 
   async function requestApi(action: string, extra: Record<string, string | boolean> = {}) {
     const response = await fetch('/api/face-recognition', {
@@ -191,6 +224,7 @@ export default function FaceRecognitionPage() {
       setNotice(result.message + ': ' + result.student)
       setImageData('')
       setImageName('')
+      await refreshFaceStatuses()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ลงทะเบียนใบหน้าไม่สำเร็จ')
     } finally {
@@ -230,6 +264,7 @@ export default function FaceRecognitionPage() {
     try {
       const result = await requestApi('delete', { studentId: selectedId })
       setNotice(result.message)
+      await refreshFaceStatuses()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ลบข้อมูลใบหน้าไม่สำเร็จ')
     } finally {
@@ -291,13 +326,44 @@ export default function FaceRecognitionPage() {
           <article style={{ background: 'white', padding: 22, borderRadius: 22, boxShadow: '0 8px 30px #0f172a0a', border: '1px solid #e7eaf3' }}>
             <h2 style={{ fontSize: 19, margin: '0 0 14px' }}>3. ลงทะเบียนใบหน้านักเรียน</h2>
             <input value={searchText} onChange={(event) => setSearchText(event.target.value)} placeholder="ค้นหาชื่อหรือรหัสนักเรียน" style={{ boxSizing: 'border-box', width: '100%', border: '1px solid #dbe1ed', borderRadius: 12, padding: 12, marginBottom: 10, font: 'inherit' }} />
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <button type="button" onClick={() => setStatusFilter(statusFilter === 'enrolled' ? null : 'enrolled')} aria-expanded={statusFilter === 'enrolled'} style={{ border: statusFilter === 'enrolled' ? '2px solid #15803d' : '1px solid transparent', padding: '7px 11px', borderRadius: 999, background: '#dcfce7', color: '#166534', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+                ✓ ลงทะเบียนแล้ว {students.filter((student) => enrolledStudentIds.includes(student.id)).length} คน · คลิกดูรายชื่อ
+              </button>
+              <button type="button" onClick={() => setStatusFilter(statusFilter === 'not-enrolled' ? null : 'not-enrolled')} aria-expanded={statusFilter === 'not-enrolled'} style={{ border: statusFilter === 'not-enrolled' ? '2px solid #64748b' : '1px solid transparent', padding: '7px 11px', borderRadius: 999, background: '#f1f5f9', color: '#475569', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}>
+                ○ ยังไม่ลงทะเบียน {students.filter((student) => !enrolledStudentIds.includes(student.id)).length} คน · คลิกดูรายชื่อ
+              </button>
+              <button type="button" onClick={refreshFaceStatuses} disabled={statusLoading || busy} style={{ marginLeft: 'auto', border: '1px solid #c7d2fe', borderRadius: 999, padding: '6px 10px', background: '#eef2ff', color: '#4338ca', fontSize: 12, fontWeight: 750, cursor: statusLoading || busy ? 'wait' : 'pointer' }}>
+                {statusLoading ? 'กำลังตรวจสอบ…' : '↻ รีเฟรชสถานะ'}
+              </button>
+            </div>
+            {statusFilter && <div style={{ marginBottom: 12, padding: 14, borderRadius: 14, border: '1px solid ' + (statusFilter === 'enrolled' ? '#bbf7d0' : '#e2e8f0'), background: statusFilter === 'enrolled' ? '#f0fdf4' : '#f8fafc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
+                <strong style={{ color: statusFilter === 'enrolled' ? '#166534' : '#475569' }}>{statusFilter === 'enrolled' ? 'รายชื่อนักเรียนที่ลงทะเบียนใบหน้าแล้ว' : 'รายชื่อนักเรียนที่ยังไม่ลงทะเบียนใบหน้า'}</strong>
+                <button type="button" onClick={() => setStatusFilter(null)} aria-label="ปิดรายชื่อ" style={{ border: 0, borderRadius: 8, padding: 5, background: 'transparent', color: '#64748b', cursor: 'pointer' }}><X size={18} /></button>
+              </div>
+              <div style={{ display: 'grid', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
+                {students.filter((student) => statusFilter === 'enrolled' ? enrolledStudentIds.includes(student.id) : !enrolledStudentIds.includes(student.id)).map((student) => <button key={student.id} type="button" onClick={() => { setSelectedId(student.id); setStatusFilter(null) }} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '9px 10px', border: '1px solid #e2e8f0', borderRadius: 10, background: 'white', cursor: 'pointer' }}>
+                  {student.photo_url ? <img src={student.photo_url} alt="" style={{ width: 36, height: 36, borderRadius: 10, objectFit: 'cover' }} /> : <UserRound size={28} color="#64748b" />}
+                  <span style={{ flex: 1, minWidth: 0 }}><strong style={{ display: 'block', fontSize: 13 }}>{student.full_name}</strong><span style={{ color: '#64748b', fontSize: 12 }}>{student.student_code}{student.class_name ? ' · ' + student.class_name : ''}</span></span>
+                  <span style={{ color: statusFilter === 'enrolled' ? '#15803d' : '#64748b', fontSize: 12, fontWeight: 800 }}>{statusFilter === 'enrolled' ? 'ลงทะเบียนแล้ว' : 'ยังไม่ลงทะเบียน'}</span>
+                </button>)}
+                {students.filter((student) => statusFilter === 'enrolled' ? enrolledStudentIds.includes(student.id) : !enrolledStudentIds.includes(student.id)).length === 0 && <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>ไม่มีรายชื่อในหมวดนี้</p>}
+              </div>
+            </div>}
             <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} style={{ boxSizing: 'border-box', width: '100%', border: '1px solid #dbe1ed', borderRadius: 12, padding: 12, background: 'white', font: 'inherit' }}>
               <option value="">เลือกนักเรียน</option>
-              {filteredStudents.map((student) => <option key={student.id} value={student.id}>{student.student_code} · {student.full_name}{student.class_name ? ' · ' + student.class_name : ''}</option>)}
+              {filteredStudents.map((student) => <option key={student.id} value={student.id}>{student.student_code} · {student.full_name}{student.class_name ? ' · ' + student.class_name : ''}{enrolledStudentIds.includes(student.id) ? ' · ลงทะเบียนแล้ว' : ' · ยังไม่ลงทะเบียน'}</option>)}
             </select>
             {selectedStudent && <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12, padding: 12, borderRadius: 14, background: '#f8fafc' }}>
               {selectedStudent.photo_url ? <img src={selectedStudent.photo_url} alt="" style={{ width: 48, height: 48, borderRadius: 14, objectFit: 'cover' }} /> : <UserRound size={34} color="#64748b" />}
-              <div><strong>{selectedStudent.full_name}</strong><div style={{ color: '#64748b', fontSize: 13 }}>{selectedStudent.student_code}</div></div>
+              <div style={{ flex: 1 }}>
+                <strong>{selectedStudent.full_name}</strong>
+                <div style={{ color: '#64748b', fontSize: 13 }}>{selectedStudent.student_code}</div>
+                <div style={{ display: 'inline-flex', marginTop: 5, padding: '4px 9px', borderRadius: 999, background: enrolledStudentIds.includes(selectedStudent.id) ? '#dcfce7' : '#f1f5f9', color: enrolledStudentIds.includes(selectedStudent.id) ? '#166534' : '#475569', fontSize: 12, fontWeight: 800 }}>
+                  {enrolledStudentIds.includes(selectedStudent.id) ? '✓ ลงทะเบียนใบหน้าแล้ว' : 'ยังไม่ได้ลงทะเบียนใบหน้า'}
+                </div>
+              </div>
             </div>}
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 14, padding: 12, borderRadius: 12, background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', fontSize: 13, lineHeight: 1.6 }}><input type="checkbox" checked={consentConfirmed} onChange={(event) => setConsentConfirmed(event.target.checked)} style={{ marginTop: 4 }} /><span>ยืนยันว่าได้รับความยินยอมจากนักเรียนหรือผู้ปกครองให้เก็บและใช้ข้อมูลใบหน้าเพื่อการระบุตัวตนใน Shine Wallet แล้ว</span></label>
             <button onClick={enroll} disabled={busy || !selectedId || !imageData || !consentConfirmed} style={{ width: '100%', border: 0, borderRadius: 12, padding: 13, marginTop: 14, background: '#0f9f91', color: 'white', fontWeight: 750, cursor: busy ? 'wait' : 'pointer' }}>ลงทะเบียน / เปลี่ยนใบหน้า</button>

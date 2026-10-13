@@ -703,7 +703,6 @@ export default function AdminPage() {
         <div><div className="brand"><span className="admin-brand-icon"><Wallet size={22} strokeWidth={2.4} /></span><span>Shine Wallet <span className="admin-brand-light">Admin</span></span></div><div className="muted">จัดการนักเรียน · เงิน · สินค้า · ประวัติธุรกรรม</div></div>
         <div className="admin-actions">
           <Link href="/kiosk" className="btn admin-kiosk-top-btn"><Store size={17} /> จุดขาย</Link>
-          <Link href="/admin/face-recognition" className="btn" style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><Fingerprint size={17} /> จดจำใบหน้า</Link>
           <button className="btn dark admin-logout-btn" onClick={requestLogout}><LogOut size={17} /> ออกจากระบบ</button>
         </div>
       </div>
@@ -738,6 +737,7 @@ export default function AdminPage() {
         <button className={`admin-tab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')} aria-label="สินค้า"><span><ShoppingBag size={22} strokeWidth={2.2} /></span><b>สินค้า</b><small>สินค้าและสต็อก</small></button>
         <button className={`admin-tab ${tab === 'debts' ? 'active' : ''}`} onClick={() => { setTab('debts'); void loadSnackDebts() }} aria-label="ติดเงินค่าขนม"><span><ClipboardCheck size={22} strokeWidth={2.2} /></span><b>ติดเงินค่าขนม</b><small>ประวัติและอนุมัติรับชำระ</small></button>
         <button className={`admin-tab ${tab === 'realtime' ? 'active' : ''}`} onClick={() => setTab('realtime')} aria-label="ธุรกรรมสด"><span><RadioTower size={22} strokeWidth={2.2} /></span><b>ธุรกรรมสด</b><small>ติดตามรายการล่าสุด</small></button>
+        <Link href="/admin/face-recognition" className="admin-tab" aria-label="จดจำใบหน้า" style={{ textDecoration: 'none' }}><span><Fingerprint size={22} strokeWidth={2.2} /></span><b>จดจำใบหน้า</b><small>ลงทะเบียนและค้นหาใบหน้า</small></Link>
       </div>
 
       {tab === 'dashboard' ? (

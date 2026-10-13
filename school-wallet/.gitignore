@@ -54,3 +54,5 @@ Thumbs.db
 
 # Generated files
 *.log
+
+scripts/backup-*.mjs
