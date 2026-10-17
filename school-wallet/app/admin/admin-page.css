@@ -1975,3 +1975,125 @@ main.admin-page-root .realtime-item-row > b {
     align-self: center;
   }
 }
+
+/* Shine Wallet Admin navigation: desktop sidebar + mobile drawer */
+main.admin-page-root.shine-admin-layout,
+main.admin-page-root {
+  --shine-admin-sidebar-width: 258px;
+}
+.shine-admin-topbar { position: relative; z-index: 35; }
+.shine-admin-menu-toggle {
+  display: none; align-items: center; justify-content: center; flex: 0 0 42px;
+  width: 42px; height: 42px; border: 0; border-radius: 12px; cursor: pointer;
+  color: #164e63; background: #e0f2fe; font-size: 25px; line-height: 1;
+}
+.shine-admin-sidebar {
+  position: fixed; z-index: 32; top: 124px; bottom: 18px;
+  left: max(16px, calc((100vw - 1440px) / 2));
+  width: var(--shine-admin-sidebar-width); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 7px; padding: 16px 12px;
+  border: 1px solid #dbeafe; border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  box-shadow: 0 12px 32px rgba(30, 64, 175, .09);
+}
+.shine-admin-sidebar-heading { padding: 4px 10px 10px; color: #64748b; font-size: 12px; font-weight: 800; letter-spacing: .06em; }
+.shine-admin-nav-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 45px;
+  padding: 10px 11px; border: 1px solid transparent; border-radius: 13px;
+  background: transparent; color: #334155; text-align: left; text-decoration: none;
+  font: inherit; cursor: pointer; transition: background .18s ease, transform .18s ease;
+}
+.shine-admin-nav-item > span { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 30px; height: 30px; border-radius: 10px; font-size: 19px; font-weight: 800; }
+.shine-admin-nav-item b { font-size: 13px; line-height: 1.35; }
+.shine-admin-nav-item small { margin-left: auto; color: #64748b; font-size: 10px; }
+.shine-admin-nav-item:hover { transform: translateX(2px); background: #f1f5f9; }
+.shine-admin-nav-item.is-active { font-weight: 800; border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; box-shadow: inset 3px 0 #3b82f6; }
+.nav-overview > span { background: #dbeafe; color: #1d4ed8; }
+.nav-students > span { background: #dcfce7; color: #15803d; }
+.nav-topup > span { background: #fef3c7; color: #b45309; }
+.nav-debts > span { background: #ffedd5; color: #c2410c; }
+.nav-products > span { background: #f3e8ff; color: #7e22ce; }
+.nav-realtime > span, .nav-history > span { background: #cffafe; color: #0e7490; }
+.nav-face > span { background: #fce7f3; color: #be185d; }
+.nav-settings > span { background: #e2e8f0; color: #475569; }
+.nav-backup > span { background: #ede9fe; color: #6d28d9; }
+.nav-logout { margin-top: auto; color: #b91c1c; border-top: 1px solid #fee2e2; }
+.nav-logout > span { background: #fee2e2; color: #b91c1c; }
+.shine-admin-drawer-backdrop { display: none; }
+@media (min-width: 1100px) {
+  main.admin-page-root { padding-left: calc(var(--shine-admin-sidebar-width) + 30px); }
+  main.admin-page-root .shine-admin-sidebar { left: max(16px, calc((100vw - 1440px) / 2)); }
+}
+@media (max-width: 1099px) {
+  .shine-admin-menu-toggle { display: inline-flex; }
+  .shine-admin-topbar { display: flex; align-items: center; gap: 12px; }
+  .shine-admin-topbar > div:first-of-type { min-width: 0; flex: 1; }
+  .shine-admin-topbar .admin-actions { gap: 7px; }
+  .shine-admin-sidebar { top: 12px; bottom: 12px; left: 12px; width: min(320px, calc(100vw - 52px)); border-radius: 18px; transform: translateX(calc(-100% - 24px)); transition: transform .22s ease; z-index: 51; }
+  .shine-admin-sidebar.is-open { transform: translateX(0); }
+  .shine-admin-drawer-backdrop { display: block; position: fixed; inset: 0; z-index: 50; border: 0; background: rgba(15, 23, 42, .45); }
+  main.admin-page-root { padding-left: 0; }
+}
+@media (max-width: 600px) {
+  .shine-admin-topbar .muted { display: none; }
+  .shine-admin-topbar .admin-kiosk-top-btn { display: none; }
+  .shine-admin-topbar .admin-actions { margin-left: auto; }
+  .shine-admin-topbar .admin-logout-btn { padding: 9px 10px; }
+}
+
+/* Responsive-only topbar icons: preserve desktop icons, use Rich Menu-style icons on compact screens. */
+.topbar-icon-desktop { display: inline-flex; align-items: center; }
+.topbar-icon-mobile { display: none; align-items: center; }
+@media (max-width: 800px) {
+  .shine-admin-topbar .topbar-icon-desktop { display: none; }
+  .shine-admin-topbar .topbar-icon-mobile { display: inline-flex; }
+}
+
+/* Fix duplicate responsive topbar icons: exactly one icon variant is visible at each width. */
+@media (min-width: 801px) {
+  .topbar-icon-desktop { display: inline-flex !important; }
+  .topbar-icon-mobile { display: none !important; }
+}
+@media (max-width: 800px) {
+  .topbar-icon-desktop { display: none !important; }
+  .topbar-icon-mobile { display: inline-flex !important; }
+}
+
+/* Mobile edge spacing: keep admin content comfortably inset from screen edges. */
+@media (max-width: 600px) {
+  main.admin-page-root {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+    box-sizing: border-box;
+  }
+}
+
+/* Face-recognition page: reserve desktop space for the fixed admin sidebar.
+   The page has inline padding, so use the logical padding override here. */
+@media (min-width: 1100px) {
+  main.admin-page-root.face-recognition-admin-root {
+    padding-inline-start: calc(var(--shine-admin-sidebar-width, 258px) + 30px) !important;
+  }
+}
+
+/* Top-up student picker: progressively render the list to keep opening responsive. */
+main.admin-page-root .topup-picker-show-more {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 10px 0 2px;
+  padding: 10px 14px;
+  border: 1px solid #bfdbfe;
+  border-radius: 13px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+main.admin-page-root .topup-picker-show-more:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}

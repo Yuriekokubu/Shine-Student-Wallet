@@ -6,7 +6,7 @@ import QRCode from 'qrcode'
 import { supabase } from '../../lib/supabase'
 import { useWalletRealtime } from '../../lib/use-wallet-realtime'
 import WalletDashboard from '../../components/admin/WalletDashboard'
-import { Activity, CheckCircle2, ClipboardCheck, Fingerprint, GraduationCap, History, LayoutDashboard, LogOut, Package, Pencil, Plus, QrCode, RadioTower, Search, ShoppingBag, Store, Trash2, UsersRound, Wallet, X } from 'lucide-react'
+import { Activity, Camera, CheckCircle2, ClipboardCheck, DoorOpen, Fingerprint, GraduationCap, History, LayoutDashboard, LogOut, Package, Pencil, Plus, QrCode, RadioTower, Search, ShoppingBag, Store, Trash2, UsersRound, Wallet, X } from 'lucide-react'
 import AdminOverlays from '../../components/admin/AdminOverlays'
 import RealtimeTransactionsPanel from '../../components/admin/RealtimeTransactionsPanel'
 import PurchaseDetailsModal, { type PurchaseItem } from '../../components/admin/PurchaseDetailsModal'
@@ -55,6 +55,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState('')
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<'dashboard' | 'students' | 'products' | 'realtime' | 'debts'>('dashboard')
+  const [adminDrawerOpen, setAdminDrawerOpen] = useState(false)
   const { connected: realtimeConnected, error: realtimeError } = useWalletRealtime((table) => {
     if (!supabase) return
 
@@ -133,6 +134,7 @@ export default function AdminPage() {
   const [topupModalOpen, setTopupModalOpen] = useState(false)
   const [topupStudentPickerOpen, setTopupStudentPickerOpen] = useState(false)
   const [topupStudentSearch, setTopupStudentSearch] = useState('')
+  const [topupPickerVisibleCount, setTopupPickerVisibleCount] = useState(40)
   const [editTopup, setEditTopup] = useState<WalletTransaction | null>(null)
   const [editTopupAmount, setEditTopupAmount] = useState('')
   const [editTopupNote, setEditTopupNote] = useState('')
@@ -699,11 +701,14 @@ export default function AdminPage() {
 
   return (
     <main className="shell admin-page-root">
-      <div className="topbar admin-topbar">
+      <div className="topbar admin-topbar shine-admin-topbar">
+        <button type="button" className="shine-admin-menu-toggle" onClick={() => setAdminDrawerOpen((open) => !open)} aria-label={adminDrawerOpen ? "ปิดเมนู" : "เปิดเมนู"} aria-expanded={adminDrawerOpen}>
+          <span>{adminDrawerOpen ? '✕' : '☰'}</span>
+        </button>
         <div><div className="brand"><span className="admin-brand-icon"><Wallet size={22} strokeWidth={2.4} /></span><span>Shine Wallet <span className="admin-brand-light">Admin</span></span></div><div className="muted">จัดการนักเรียน · เงิน · สินค้า · ประวัติธุรกรรม</div></div>
         <div className="admin-actions">
-          <Link href="/kiosk" className="btn admin-kiosk-top-btn"><Store size={17} /> จุดขาย</Link>
-          <button className="btn dark admin-logout-btn" onClick={requestLogout}><LogOut size={17} /> ออกจากระบบ</button>
+          <Link href="/kiosk" className="btn admin-kiosk-top-btn"><Store size={17} strokeWidth={2.4} aria-hidden="true" /> จุดขาย</Link>
+          <button className="btn dark admin-logout-btn" onClick={requestLogout}><LogOut size={17} strokeWidth={2.4} aria-hidden="true" /> ออกจากระบบ</button>
         </div>
       </div>
 
@@ -731,14 +736,21 @@ export default function AdminPage() {
         <div className="card"><div className="stat-icon purple"><Activity size={24} strokeWidth={2.2} /></div><div><div className="muted">ธุรกรรม</div><div className="stat-number">{transactions.length}</div><div className="muted">เติม ฿{totalTopup.toFixed(2)} · ซื้อ ฿{totalPurchase.toFixed(2)}</div></div></div>
       </div>
 
-      <div className="admin-tabs">
-        <button className={`admin-tab ${tab === 'dashboard' ? 'active' : ''}`} onClick={() => setTab('dashboard')} aria-label="ภาพรวม"><span><LayoutDashboard size={22} strokeWidth={2.2} /></span><b>ภาพรวม</b><small>Dashboard &amp; สรุปข้อมูล</small></button>
-        <button className={`admin-tab ${tab === 'students' ? 'active' : ''}`} onClick={() => setTab('students')} aria-label="นักเรียน"><span><UsersRound size={22} strokeWidth={2.2} /></span><b>นักเรียน</b><small>ข้อมูลและกระเป๋าเงิน</small></button>
-        <button className={`admin-tab ${tab === 'products' ? 'active' : ''}`} onClick={() => setTab('products')} aria-label="สินค้า"><span><ShoppingBag size={22} strokeWidth={2.2} /></span><b>สินค้า</b><small>สินค้าและสต็อก</small></button>
-        <button className={`admin-tab ${tab === 'debts' ? 'active' : ''}`} onClick={() => { setTab('debts'); void loadSnackDebts() }} aria-label="ติดเงินค่าขนม"><span><ClipboardCheck size={22} strokeWidth={2.2} /></span><b>ติดเงินค่าขนม</b><small>ประวัติและอนุมัติรับชำระ</small></button>
-        <button className={`admin-tab ${tab === 'realtime' ? 'active' : ''}`} onClick={() => setTab('realtime')} aria-label="ธุรกรรมสด"><span><RadioTower size={22} strokeWidth={2.2} /></span><b>ธุรกรรมสด</b><small>ติดตามรายการล่าสุด</small></button>
-        <Link href="/admin/face-recognition" className="admin-tab" aria-label="จดจำใบหน้า" style={{ textDecoration: 'none' }}><span><Fingerprint size={22} strokeWidth={2.2} /></span><b>จดจำใบหน้า</b><small>ลงทะเบียนและค้นหาใบหน้า</small></Link>
-      </div>
+      {adminDrawerOpen && <button type="button" className="shine-admin-drawer-backdrop" aria-label="ปิดเมนู" onClick={() => setAdminDrawerOpen(false)} />}
+      <aside className={`shine-admin-sidebar ${adminDrawerOpen ? 'is-open' : ''}`} aria-label="เมนูผู้ดูแลระบบ">
+        <div className="shine-admin-sidebar-heading">เมนูจัดการระบบ</div>
+        <button className={`shine-admin-nav-item nav-overview ${tab === 'dashboard' ? 'is-active' : ''}`} onClick={() => { setTab('dashboard'); setAdminDrawerOpen(false) }}><span>▦</span><b>ภาพรวม Dashboard</b></button>
+        <button className={`shine-admin-nav-item nav-students ${tab === 'students' ? 'is-active' : ''}`} onClick={() => { setTab('students'); setAdminDrawerOpen(false) }}><span>♙</span><b>นักเรียน</b></button>
+        <button className="shine-admin-nav-item nav-topup" onClick={() => { setTab('students'); setTopupStudentPickerOpen(true); setTopupModalOpen(true); setAdminDrawerOpen(false) }}><span>＋</span><b>เติมเงิน / แก้ไขยอดเติมเงิน</b></button>
+        <button className={`shine-admin-nav-item nav-debts ${tab === 'debts' ? 'is-active' : ''}`} onClick={() => { setTab('debts'); void loadSnackDebts(); setAdminDrawerOpen(false) }}><span>▤</span><b>หนี้ค่าขนม / รับชำระคืน</b></button>
+        <button className={`shine-admin-nav-item nav-products ${tab === 'products' ? 'is-active' : ''}`} onClick={() => { setTab('products'); setAdminDrawerOpen(false) }}><span>▣</span><b>สินค้า / สต็อก</b></button>
+        <button className={`shine-admin-nav-item nav-realtime ${tab === 'realtime' ? 'is-active' : ''}`} onClick={() => { setTab('realtime'); setAdminDrawerOpen(false) }}><span>◉</span><b>ธุรกรรมสด</b></button>
+        <button className="shine-admin-nav-item nav-history" onClick={() => { setTab('realtime'); setMessage('แสดงรายการธุรกรรมล่าสุดในเมนูธุรกรรมสด'); setAdminDrawerOpen(false) }}><span>◷</span><b>ประวัติธุรกรรม / รายงาน</b></button>
+        <Link href="/admin/face-recognition" className="shine-admin-nav-item nav-face" onClick={() => setAdminDrawerOpen(false)}><span><Camera size={19} strokeWidth={2.4} aria-hidden="true" /></span><b>จดจำใบหน้า</b></Link>
+        <button className="shine-admin-nav-item nav-settings" onClick={() => setAdminDrawerOpen(false)}><span>⚙</span><b>ตั้งค่าระบบ</b><small>ยังไม่เปิดใช้งาน</small></button>
+        <button className="shine-admin-nav-item nav-backup" onClick={() => setAdminDrawerOpen(false)}><span>▣</span><b>สำรองข้อมูล</b><small>ยังไม่มีหน้าในระบบ</small></button>
+        <button className="shine-admin-nav-item nav-logout" onClick={requestLogout}><span><DoorOpen size={19} strokeWidth={2.4} aria-hidden="true" /></span><b>ออกจากระบบ</b></button>
+      </aside>
 
       {tab === 'dashboard' ? (
         <WalletDashboard students={students} transactions={transactions} totalBalance={totalBalance} />
@@ -1254,9 +1266,9 @@ export default function AdminPage() {
               </div>
               <button type="button" className="topup-modal-close" onClick={() => setTopupStudentPickerOpen(false)} aria-label="ปิดหน้าต่างเลือกนักเรียน">×</button>
             </div>
-            <input className="input topup-picker-search" type="search" placeholder="🔎 ค้นหาชื่อ / รหัส / ชั้น" value={topupStudentSearch} onChange={(event) => setTopupStudentSearch(event.target.value)} autoFocus />
+            <input className="input topup-picker-search" type="search" placeholder="🔎 ค้นหาชื่อ / รหัส / ชั้น" value={topupStudentSearch} onChange={(event) => { setTopupStudentSearch(event.target.value); setTopupPickerVisibleCount(40) }} autoFocus />
             <div className="topup-picker-list">
-              {topupPickerStudents.map((student) => (
+              {topupPickerStudents.slice(0, topupPickerVisibleCount).map((student) => (
                 <button key={student.id} type="button" className="topup-picker-student" onClick={() => {
                   setTopupStudentPickerOpen(false)
                   openTopupModal(student)
@@ -1270,6 +1282,15 @@ export default function AdminPage() {
                   <span className="topup-picker-arrow">›</span>
                 </button>
               ))}
+              {topupPickerStudents.length > topupPickerVisibleCount && (
+                <button
+                  type="button"
+                  className="topup-picker-show-more"
+                  onClick={() => setTopupPickerVisibleCount((count) => count + 40)}
+                >
+                  แสดงนักเรียนเพิ่มเติม ({Math.min(40, topupPickerStudents.length - topupPickerVisibleCount)} คน)
+                </button>
+              )}
               {topupPickerStudents.length === 0 && <div className="topup-picker-empty">{students.some((student) => student.active) ? 'ไม่พบนักเรียนที่ตรงกับคำค้นหา' : 'ยังไม่มีนักเรียนที่เปิดใช้งาน'}</div>}
             </div>
           </div>

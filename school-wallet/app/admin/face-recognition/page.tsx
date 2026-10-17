@@ -1,8 +1,10 @@
 'use client'
 
+import '../admin-page.css'
+
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeft, Camera, CheckCircle2, Fingerprint, LoaderCircle, Search, Trash2, UserRound, X } from 'lucide-react'
+import { Camera, CheckCircle2, DoorOpen, Fingerprint, LoaderCircle, Search, Trash2, UserRound, X, Wallet, Store, LogOut } from 'lucide-react'
 import { supabase } from '../../../lib/supabase'
 
 type Student = {
@@ -17,6 +19,7 @@ type Student = {
 type Match = Student & { similarity: number }
 
 export default function FaceRecognitionPage() {
+  const [adminDrawerOpen, setAdminDrawerOpen] = useState(false)
   const [students, setStudents] = useState<Student[]>([])
   const [enrolledStudentIds, setEnrolledStudentIds] = useState<string[]>([])
   const [statusLoading, setStatusLoading] = useState(false)
@@ -275,11 +278,37 @@ export default function FaceRecognitionPage() {
   const selectedStudent = students.find((student) => student.id === selectedId)
 
   return (
-    <main style={{ minHeight: '100vh', padding: 'clamp(16px, 3vw, 32px)', background: 'linear-gradient(135deg,#f4f7ff 0%,#f9f5ff 55%,#effcf7 100%)', color: '#172033' }}>
+    <main className="shell admin-page-root face-recognition-admin-root" style={{ minHeight: '100vh', padding: 'clamp(16px, 3vw, 32px)', background: 'linear-gradient(135deg,#f4f7ff 0%,#f9f5ff 55%,#effcf7 100%)', color: '#172033' }}>
+      <div className="topbar admin-topbar shine-admin-topbar">
+        <button type="button" className="shine-admin-menu-toggle" onClick={() => setAdminDrawerOpen((open) => !open)} aria-label={adminDrawerOpen ? 'ปิดเมนู' : 'เปิดเมนู'} aria-expanded={adminDrawerOpen}>
+          <span>{adminDrawerOpen ? '✕' : '☰'}</span>
+        </button>
+        <div>
+          <div className="brand"><span className="admin-brand-icon"><Wallet size={22} strokeWidth={2.4} /></span><span>Shine Wallet <span className="admin-brand-light">Admin</span></span></div>
+          <div className="muted">จัดการนักเรียน · เงิน · สินค้า · ประวัติธุรกรรม</div>
+        </div>
+        <div className="admin-actions">
+          <Link href="/kiosk" className="btn admin-kiosk-top-btn"><Store size={17} strokeWidth={2.4} aria-hidden="true" /> จุดขาย</Link>
+          <Link href="/admin" className="btn dark admin-logout-btn"><LogOut size={17} strokeWidth={2.4} aria-hidden="true" /> กลับหน้า Admin</Link>
+        </div>
+      </div>
+
+      {adminDrawerOpen && <button type="button" className="shine-admin-drawer-backdrop" aria-label="ปิดเมนู" onClick={() => setAdminDrawerOpen(false)} />}
+      <aside className={`shine-admin-sidebar ${adminDrawerOpen ? 'is-open' : ''}`} aria-label="เมนูผู้ดูแลระบบ">
+        <div className="shine-admin-sidebar-heading">เมนูจัดการระบบ</div>
+        <Link href="/admin" className="shine-admin-nav-item nav-overview" onClick={() => setAdminDrawerOpen(false)}><span>▦</span><b>ภาพรวม Dashboard</b></Link>
+        <Link href="/admin" className="shine-admin-nav-item nav-students" onClick={() => setAdminDrawerOpen(false)}><span>♙</span><b>นักเรียน</b></Link>
+        <Link href="/admin" className="shine-admin-nav-item nav-topup" onClick={() => setAdminDrawerOpen(false)}><span>＋</span><b>เติมเงิน / แก้ไขยอดเติมเงิน</b></Link>
+        <Link href="/admin" className="shine-admin-nav-item nav-debts" onClick={() => setAdminDrawerOpen(false)}><span>▤</span><b>หนี้ค่าขนม / รับชำระคืน</b></Link>
+        <Link href="/admin" className="shine-admin-nav-item nav-products" onClick={() => setAdminDrawerOpen(false)}><span>▣</span><b>สินค้า / สต็อก</b></Link>
+        <Link href="/admin" className="shine-admin-nav-item nav-realtime" onClick={() => setAdminDrawerOpen(false)}><span>◉</span><b>ธุรกรรมสด</b></Link>
+        <Link href="/admin" className="shine-admin-nav-item nav-history" onClick={() => setAdminDrawerOpen(false)}><span>◷</span><b>ประวัติธุรกรรม / รายงาน</b></Link>
+        <Link href="/admin/face-recognition" className="shine-admin-nav-item nav-face is-active" aria-current="page" onClick={() => setAdminDrawerOpen(false)}><span><Camera size={19} strokeWidth={2.4} aria-hidden="true" /></span><b>จดจำใบหน้า</b></Link>
+        <Link href="/admin" className="shine-admin-nav-item nav-settings" onClick={() => setAdminDrawerOpen(false)}><span>⚙</span><b>ตั้งค่าระบบ</b></Link>
+        <Link href="/admin" className="shine-admin-nav-item nav-backup" onClick={() => setAdminDrawerOpen(false)}><span>▣</span><b>สำรองข้อมูล</b></Link>
+        <Link href="/admin" className="shine-admin-nav-item nav-logout" onClick={() => setAdminDrawerOpen(false)}><span><DoorOpen size={19} strokeWidth={2.4} aria-hidden="true" /></span><b>กลับหน้า Admin</b></Link>
+      </aside>
       <div style={{ maxWidth: 1080, margin: '0 auto' }}>
-        <Link href="/admin" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: '#475569', textDecoration: 'none', fontWeight: 700, marginBottom: 20 }}>
-          <ArrowLeft size={18} /> กลับหน้า Admin
-        </Link>
 
         <header style={{ padding: '24px', borderRadius: 24, background: 'linear-gradient(120deg,#4338ca,#7c3aed 55%,#0f9f91)', color: 'white', boxShadow: '0 18px 50px #4338ca22' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
